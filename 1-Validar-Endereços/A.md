@@ -1,0 +1,1 @@
+uv run validador_puzzle.py
