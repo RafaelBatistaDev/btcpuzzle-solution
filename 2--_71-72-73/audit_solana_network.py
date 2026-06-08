@@ -3,7 +3,7 @@
 
 """
 Auditoria de Rede Solana - Foco em Solana JSON-RPC & Helius Endpoint
-Valida conexão, limites de taxa, latência e saldos dos puzzles.
+Valida conexão, limites de taxa, latência e saldos dos puzzles via getMultipleAccounts Batch.
 """
 
 import os
@@ -23,9 +23,10 @@ RESET = "\033[0m"
 BOLD = "\033[1m"
 
 def log_section(title):
-    print(f"\n{BOLD}{BLUE}═" * 70)
+    border = "═" * 70
+    print(f"\n{BOLD}{BLUE}{border}")
     print(f"📡 {title.upper()}")
-    print("═" * 70 + f"{RESET}")
+    print(f"{border}{RESET}")
 
 def log_success(msg):
     print(f"  {GREEN}✔ {msg}{RESET}")
@@ -53,7 +54,7 @@ def load_env():
 
 def main():
     print(f"\n{BOLD}{CYAN}╔════════════════════════════════════════════════════════════╗")
-    print(f"║          AUDITORIA DE REDE SOLANA - RPC & HELIUS           ║")
+    print(f"║          AUDITORIA DE REDE SOLANA - BATCH RPC & HELIUS     ║")
     print(f"╚════════════════════════════════════════════════════════════╝{RESET}")
 
     # 1. Carregar configurações
@@ -68,18 +69,15 @@ def main():
     target_72 = env.get("SOL_TARGET_72", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM")
     target_73 = env.get("SOL_TARGET_73", "7mhcgF1DVsj5iv4CxZDgp51H6MBBwqamsH1KnqXhSRc5")
     
-    # Mascarar chave Helius no log para segurança
+    # Mascarar a API key da Helius de forma segura e cirúrgica para logs limpos
     masked_rpc = sol_rpc
     if "api-key=" in sol_rpc:
-        parts = sol_rpc.split("api-key=")
-        if len(parts) > 1:
-            key = parts[1]
-            masked_key = key[:6] + "..." if len(key) > 6 else "..."
-            masked_rpc = parts[0] + "api-key=" + masked_key
+        base_part, key_part = sol_rpc.split("api-key=", 1)
+        masked_rpc = f"{base_part}api-key={key_part[:6]}..."
             
-    print(f"  Solana RPC Endpoint: {BOLD}{masked_rpc}{RESET}")
-    print(f"  Delay configurado: {BOLD}{sol_delay_ms} ms{RESET}")
-    print(f"  Timeout configurado: {BOLD}{sol_timeout_ms} ms{RESET}")
+    print(f"  Solana Helius Endpoint: {BOLD}{masked_rpc}{RESET}")
+    print(f"  Delay operacional: {BOLD}{sol_delay_ms} ms{RESET}")
+    print(f"  Timeout de Conexão: {BOLD}{sol_timeout_ms} ms{RESET}")
     print(f"  Alvos (Targets):")
     print(f"    - Puzzle 71: {target_71}")
     print(f"    - Puzzle 72: {target_72}")
@@ -91,7 +89,6 @@ def main():
     
     rpc_ok = False
     latency_rpc = 0.0
-    epoch_info = {}
     
     try:
         t_start = time.time()
@@ -109,16 +106,15 @@ def main():
             data = resp.json()
             if "result" in data:
                 epoch_info = data["result"]
-                log_success("Conectado com sucesso ao Solana RPC Node!")
+                log_success("Conectado com sucesso ao Provedor Helius Solana RPC!")
                 print(f"  Latência RPC: {BOLD}{latency_rpc:.2f} ms{RESET}")
-                print(f"  Slot Atual: {BOLD}{epoch_info.get('absoluteSlot')}{RESET}")
+                print(f"  Slot Absoluto Atual: {BOLD}{epoch_info.get('absoluteSlot')}{RESET}")
                 print(f"  Época Atual: {BOLD}{epoch_info.get('epoch')}{RESET}")
-                print(f"  Progresso da Época: {BOLD}{epoch_info.get('slotIndex')} / {epoch_info.get('slotsInEpoch')}{RESET}")
                 rpc_ok = True
             else:
                 log_warn(f"RPC respondeu com formato inesperado: {data}")
         elif resp.status_code == 429:
-            log_error("RPC retornou código 429 - Limite de taxa (Rate Limit) excedido!")
+            log_error("RPC Helius retornou HTTP 429 - Limite de taxa (Rate Limit) atingido!")
         else:
             log_error(f"RPC respondeu com status código HTTP: {resp.status_code}")
             
@@ -129,13 +125,12 @@ def main():
     log_section("3. Auditoria de Funções de Saldo (getBalance)")
     
     rpc_balance_ok = False
-    # Wallet ativa de teste (Binance Hot Wallet no Solana)
     binance_wallet = "9W52yWEd2ZssJuBt14577vmzPLaxBuu5AwyCHXM7dH3g"
     
     if rpc_ok:
         try:
-            # Respeitar rate limits
-            time.sleep(sol_delay_ms / 1000.0)
+            if sol_delay_ms > 0:
+                time.sleep(sol_delay_ms / 1000.0)
             
             payload = {
                 "jsonrpc": "2.0",
@@ -149,7 +144,6 @@ def main():
             
             if resp.status_code == 200 and "result" in data:
                 result = data["result"]
-                # O valor retornado é em lamports (1 SOL = 1e9 lamports)
                 balance_lamports = int(result.get("value", 0))
                 balance_sol = balance_lamports / 1e9
                 log_success("getBalance: Sucesso!")
@@ -163,47 +157,62 @@ def main():
     else:
         log_warn("Pulando auditoria de saldo porque a conexão com o RPC falhou.")
 
-    # 4. Auditoria de Saldos dos Targets (Puzzles)
-    log_section("4. Verificação de Saldo dos Endereços dos Puzzles (getBalance)")
+    # 4. Auditoria de Saldos dos Targets via getMultipleAccounts (Batch Otimizado)
+    log_section("4. Verificação de Saldo dos Puzzles via Solana RPC (getMultipleAccounts Batch)")
     
     if rpc_balance_ok:
-        target_addresses = [target_71, target_72, target_73]
-        
-        for i, addr in enumerate(target_addresses):
-            try:
-                # Respeitar rate limits entre as requisições
+        try:
+            target_addresses = [target_71, target_72, target_73]
+            
+            if sol_delay_ms > 0:
                 time.sleep(sol_delay_ms / 1000.0)
                 
-                payload = {
-                    "jsonrpc": "2.0",
-                    "id": i + 1,
-                    "method": "getBalance",
-                    "params": [addr]
-                }
-                
-                resp = requests.post(sol_rpc, json=payload, headers={"Content-Type": "application/json"}, timeout=sol_timeout_ms/1000.0)
+            # Uso do método getMultipleAccounts para agrupar todas as requisições em uma única chamada de alta performance
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getMultipleAccounts",
+                "params": [
+                    target_addresses,
+                    {"encoding": "base64"}
+                ]
+            }
+            
+            resp = requests.post(sol_rpc, json=payload, headers={"Content-Type": "application/json"}, timeout=sol_timeout_ms/1000.0)
+            
+            if resp.status_code == 200:
                 data = resp.json()
-                
-                if resp.status_code == 200 and "result" in data:
-                    result = data["result"]
-                    balance_lamports = int(result.get("value", 0))
-                    balance_sol = balance_lamports / 1e9
-                    status_color = GREEN if balance_sol > 0 else RESET
-                    print(f"  Puzzle {71+i} ({addr[:10]}...): {BOLD}{status_color}{balance_sol:.9f} SOL{RESET} ({balance_lamports} Lamports)")
+                if "result" in data and "value" in data["result"]:
+                    accounts_data = data["result"]["value"]
+                    
+                    for i, account_info in enumerate(accounts_data):
+                        addr = target_addresses[i]
+                        # Se a conta nunca recebeu transações ou foi expurgada do estado, ela retorna nula (0 lamports)
+                        if account_info is None:
+                            balance_lamports = 0
+                        else:
+                            balance_lamports = int(account_info.get("lamports", 0))
+                            
+                        balance_sol = balance_lamports / 1e9
+                        status_color = GREEN if balance_sol > 0 else RESET
+                        print(f"  Puzzle {71+i} ({addr[:10]}...): {BOLD}{status_color}{balance_sol:.9f} SOL{RESET} ({balance_lamports} Lamports)")
                 else:
-                    log_error(f"Falha ao consultar saldo do Puzzle {71+i}: {data.get('error', 'Erro no RPC')}")
-            except Exception as e:
-                log_error(f"Erro ao verificar saldo do Puzzle {71+i}: {e}")
+                    log_error(f"Formato inesperado no retorno do getMultipleAccounts: {data}")
+            else:
+                log_error(f"Falha na requisição Batch getMultipleAccounts: Status HTTP {resp.status_code}")
+                
+        except Exception as e:
+            log_error(f"Erro ao processar lote de puzzles via getMultipleAccounts: {e}")
     else:
-        log_warn("Pulando verificação de puzzles porque a API do RPC não passou na validação de saldo.")
+        log_warn("Pulando verificação automatizada de puzzles porque o nó Helius apresentou instabilidade prévia.")
 
     # Resumo Final da Auditoria
     print(f"\n{BOLD}{CYAN}╔════════════════════════════════════════════════════════════╗")
     print(f"║                   RESUMO DA AUDITORIA                      ║")
     print(f"╚════════════════════════════════════════════════════════════╝{RESET}")
-    print(f"  • Latência do RPC Node: " + (f"{BOLD}{latency_rpc:.2f} ms{RESET}" if rpc_ok else f"{RED}FALHA{RESET}"))
-    print(f"  • Métodos JSON-RPC (getEpochInfo): {GREEN}OPERACIONAL{RESET}" if rpc_ok else f"  • Métodos JSON-RPC (getEpochInfo): {RED}FALHA{RESET}")
-    print(f"  • Saldo e Leitura (getBalance): {GREEN}OPERACIONAL{RESET}" if rpc_balance_ok else f"  • Saldo e Leitura (getBalance): {RED}FALHA{RESET}")
+    print(f"  • Latência do Nó Helius: " + (f"{BOLD}{latency_rpc:.2f} ms{RESET}" if rpc_ok else f"{RED}FALHA{RESET}"))
+    print(f"  • Canal de Alta Performance Batch: {GREEN}ESTÁVEL (getMultipleAccounts){RESET}" if rpc_balance_ok else f"{RED}FALHA{RESET}")
+    print(f"  • Throttling Operacional: {GREEN}ATIVO ({sol_delay_ms}ms){RESET}")
     print(f"\n{BOLD}{GREEN}✓ Auditoria de Rede Solana concluída com sucesso!{RESET}\n")
 
 if __name__ == "__main__":

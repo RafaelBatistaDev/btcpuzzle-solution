@@ -138,22 +138,33 @@ function initializeConfig() {
     const BLOCKBOOK_DELAY_MS = process.env.BLOCKBOOK_DELAY_MS ? isValidInteger(process.env.BLOCKBOOK_DELAY_MS, 'BLOCKBOOK_DELAY_MS', 0) : 0;
     const BLOCKBOOK_TIMEOUT_MS = process.env.BLOCKBOOK_TIMEOUT_MS ? isValidInteger(process.env.BLOCKBOOK_TIMEOUT_MS, 'BLOCKBOOK_TIMEOUT_MS', 1) : 10000;
 
+    const BTC_BATCH_SIZE = isValidInteger(process.env.BTC_BATCH_SIZE || '20', 'BTC_BATCH_SIZE', 1);
+    const BTC_DELAY_MS = isValidInteger(process.env.BTC_DELAY_MS || '2000', 'BTC_DELAY_MS', 0);
+    const BTC_INITIAL_DELAY_MS = isValidInteger(process.env.BTC_INITIAL_DELAY_MS || '0', 'BTC_INITIAL_DELAY_MS', 0);
+    const BTC_MAX_REQ_24H = isValidInteger(process.env.BTC_MAX_REQ_24H || '30000', 'BTC_MAX_REQ_24H', 1);
+    const BTC_TIMEOUT_MS = isValidInteger(process.env.BTC_TIMEOUT_MS || '3000', 'BTC_TIMEOUT_MS', 1);
+
     // Validar Ethereum
     isValidApiKey(process.env.ETHERSCAN_KEY, 'ETHERSCAN_KEY');
     isValidAddress(process.env.ETH_TARGET_71, 'ETH_TARGET_71', 'ethereum');
     isValidAddress(process.env.ETH_TARGET_72, 'ETH_TARGET_72', 'ethereum');
     isValidAddress(process.env.ETH_TARGET_73, 'ETH_TARGET_73', 'ethereum');
-    const ETH_DELAY_MS = isValidInteger(process.env.ETH_DELAY_MS || '200', 'ETH_DELAY_MS', 0);
+    const ETH_BATCH_SIZE = isValidInteger(process.env.ETH_BATCH_SIZE || '20', 'ETH_BATCH_SIZE', 1);
+    const ETH_DELAY_MS = isValidInteger(process.env.ETH_DELAY_MS || '80', 'ETH_DELAY_MS', 0);
     const ETH_INITIAL_DELAY_MS = isValidInteger(process.env.ETH_INITIAL_DELAY_MS || '0', 'ETH_INITIAL_DELAY_MS', 0);
-    const ETH_MAX_REQ_24H = isValidInteger(process.env.ETH_MAX_REQ_24H || '100000', 'ETH_MAX_REQ_24H', 1);
+    const ETH_MAX_REQ_24H = isValidInteger(process.env.ETH_MAX_REQ_24H || '500000', 'ETH_MAX_REQ_24H', 1);
+    const ETH_TIMEOUT_MS = isValidInteger(process.env.ETH_TIMEOUT_MS || '10000', 'ETH_TIMEOUT_MS', 1);
 
     // Validar Solana
     isValidUrl(process.env.SOL_RPC_ENDPOINT, 'SOL_RPC_ENDPOINT');
-    const SOL_DELAY_MS = isValidInteger(process.env.SOL_DELAY_MS, 'SOL_DELAY_MS', 0);
-    const SOL_TIMEOUT_MS = isValidInteger(process.env.SOL_TIMEOUT_MS, 'SOL_TIMEOUT_MS', 1);
     isValidAddress(process.env.SOL_TARGET_71, 'SOL_TARGET_71', 'solana');
     isValidAddress(process.env.SOL_TARGET_72, 'SOL_TARGET_72', 'solana');
     isValidAddress(process.env.SOL_TARGET_73, 'SOL_TARGET_73', 'solana');
+    const SOL_BATCH_SIZE = isValidInteger(process.env.SOL_BATCH_SIZE || '20', 'SOL_BATCH_SIZE', 1);
+    const SOL_DELAY_MS = isValidInteger(process.env.SOL_DELAY_MS || '110', 'SOL_DELAY_MS', 0);
+    const SOL_INITIAL_DELAY_MS = isValidInteger(process.env.SOL_INITIAL_DELAY_MS || '0', 'SOL_INITIAL_DELAY_MS', 0);
+    const SOL_MAX_REQ_24H = isValidInteger(process.env.SOL_MAX_REQ_24H || '33000', 'SOL_MAX_REQ_24H', 1);
+    const SOL_TIMEOUT_MS = isValidInteger(process.env.SOL_TIMEOUT_MS || '3000', 'SOL_TIMEOUT_MS', 1);
 
     // Validar Polygon
     isValidUrl(process.env.POLYGON_RPC_ENDPOINT, 'POLYGON_RPC_ENDPOINT');
@@ -162,8 +173,11 @@ function initializeConfig() {
     isValidAddress(process.env.POLYGON_TARGET_71, 'POLYGON_TARGET_71', 'polygon');
     isValidAddress(process.env.POLYGON_TARGET_72, 'POLYGON_TARGET_72', 'polygon');
     isValidAddress(process.env.POLYGON_TARGET_73, 'POLYGON_TARGET_73', 'polygon');
-    const POLYGON_DELAY_MS = isValidInteger(process.env.POLYGON_DELAY_MS, 'POLYGON_DELAY_MS', 0);
-    const POLYGON_TIMEOUT_MS = isValidInteger(process.env.POLYGON_TIMEOUT_MS, 'POLYGON_TIMEOUT_MS', 1);
+    const POLYGON_BATCH_SIZE = isValidInteger(process.env.POLYGON_BATCH_SIZE || '20', 'POLYGON_BATCH_SIZE', 1);
+    const POLYGON_DELAY_MS = isValidInteger(process.env.POLYGON_DELAY_MS || '300', 'POLYGON_DELAY_MS', 0);
+    const POLYGON_INITIAL_DELAY_MS = isValidInteger(process.env.POLYGON_INITIAL_DELAY_MS || '100', 'POLYGON_INITIAL_DELAY_MS', 0);
+    const POLYGON_MAX_REQ_24H = isValidInteger(process.env.POLYGON_MAX_REQ_24H || '10000', 'POLYGON_MAX_REQ_24H', 1);
+    const POLYGON_TIMEOUT_MS = isValidInteger(process.env.POLYGON_TIMEOUT_MS || '5000', 'POLYGON_TIMEOUT_MS', 1);
 
     // Validar BNB
     isValidUrl(process.env.BNB_RPC_ENDPOINT, 'BNB_RPC_ENDPOINT');
@@ -173,10 +187,11 @@ function initializeConfig() {
     isValidAddress(process.env.BNB_TARGET_71, 'BNB_TARGET_71', 'bnb');
     isValidAddress(process.env.BNB_TARGET_72, 'BNB_TARGET_72', 'bnb');
     isValidAddress(process.env.BNB_TARGET_73, 'BNB_TARGET_73', 'bnb');
-    const BNB_DELAY_MS = isValidInteger(process.env.BNB_DELAY_MS || '200', 'BNB_DELAY_MS', 0);
+    const BNB_BATCH_SIZE = isValidInteger(process.env.BNB_BATCH_SIZE || '20', 'BNB_BATCH_SIZE', 1);
+    const BNB_DELAY_MS = isValidInteger(process.env.BNB_DELAY_MS || '50', 'BNB_DELAY_MS', 0);
     const BNB_INITIAL_DELAY_MS = isValidInteger(process.env.BNB_INITIAL_DELAY_MS || '100', 'BNB_INITIAL_DELAY_MS', 0);
-    const BNB_MAX_REQ_24H = isValidInteger(process.env.BNB_MAX_REQ_24H || '100000', 'BNB_MAX_REQ_24H', 1);
-    const BNB_TIMEOUT_MS = isValidInteger(process.env.BNB_TIMEOUT_MS, 'BNB_TIMEOUT_MS', 1);
+    const BNB_MAX_REQ_24H = isValidInteger(process.env.BNB_MAX_REQ_24H || '500000', 'BNB_MAX_REQ_24H', 1);
+    const BNB_TIMEOUT_MS = isValidInteger(process.env.BNB_TIMEOUT_MS || '10000', 'BNB_TIMEOUT_MS', 1);
 
     console.log('✅ Configuração carregada e validada com sucesso!\n');
 
@@ -196,6 +211,11 @@ function initializeConfig() {
       ANKR_BTC_BLOCKBOOK_URL: process.env.ANKR_BTC_BLOCKBOOK_URL,
       BLOCKBOOK_DELAY_MS,
       BLOCKBOOK_TIMEOUT_MS,
+      BTC_BATCH_SIZE,
+      BTC_DELAY_MS,
+      BTC_INITIAL_DELAY_MS,
+      BTC_MAX_REQ_24H,
+      BTC_TIMEOUT_MS,
       
       // Ethereum
       RPC_ENDPOINT: 'https://api.etherscan.io/v2/api',
@@ -203,13 +223,18 @@ function initializeConfig() {
       ETH_TARGET_71: process.env.ETH_TARGET_71,
       ETH_TARGET_72: process.env.ETH_TARGET_72,
       ETH_TARGET_73: process.env.ETH_TARGET_73,
+      ETH_BATCH_SIZE,
       ETH_DELAY_MS,
       ETH_INITIAL_DELAY_MS,
       ETH_MAX_REQ_24H,
+      ETH_TIMEOUT_MS,
       
       // Solana
       SOL_RPC_ENDPOINT: process.env.SOL_RPC_ENDPOINT,
+      SOL_BATCH_SIZE,
       SOL_DELAY_MS,
+      SOL_INITIAL_DELAY_MS,
+      SOL_MAX_REQ_24H,
       SOL_TIMEOUT_MS,
       SOL_TARGET_71: process.env.SOL_TARGET_71,
       SOL_TARGET_72: process.env.SOL_TARGET_72,
@@ -221,7 +246,10 @@ function initializeConfig() {
       POLYGON_TARGET_71: process.env.POLYGON_TARGET_71,
       POLYGON_TARGET_72: process.env.POLYGON_TARGET_72,
       POLYGON_TARGET_73: process.env.POLYGON_TARGET_73,
+      POLYGON_BATCH_SIZE,
       POLYGON_DELAY_MS,
+      POLYGON_INITIAL_DELAY_MS,
+      POLYGON_MAX_REQ_24H,
       POLYGON_TIMEOUT_MS,
       
       // BNB
@@ -230,6 +258,7 @@ function initializeConfig() {
       BNB_TARGET_71: process.env.BNB_TARGET_71,
       BNB_TARGET_72: process.env.BNB_TARGET_72,
       BNB_TARGET_73: process.env.BNB_TARGET_73,
+      BNB_BATCH_SIZE,
       BNB_DELAY_MS,
       BNB_INITIAL_DELAY_MS,
       BNB_MAX_REQ_24H,

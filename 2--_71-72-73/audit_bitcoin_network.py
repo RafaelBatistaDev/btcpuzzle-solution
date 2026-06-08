@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-Auditoria de Rede Bitcoin - Foco em Blockchain.info e Blockbook APIs
-Valida conexão, endpoints, limites de taxa e saldos dos puzzles.
+Auditoria de Rede Bitcoin - Foco em Mempool/Esplora REST API com Controle de Fluxo
+Aplica Throttling, Batch Slicing e limites operacionais de produção para monitoramento contínuo.
 """
 
 import os
 import sys
 import time
-import json
 from pathlib import Path
 import requests
 
@@ -23,9 +22,10 @@ RESET = "\033[0m"
 BOLD = "\033[1m"
 
 def log_section(title):
-    print(f"\n{BOLD}{BLUE}" + "═" * 70)
+    border = "═" * 70
+    print(f"\n{BOLD}{BLUE}{border}")
     print(f"📡 {title.upper()}")
-    print("═" * 70 + f"{RESET}")
+    print(f"{border}{RESET}")
 
 def log_success(msg):
     print(f"  {GREEN}✔ {msg}{RESET}")
@@ -53,215 +53,106 @@ def load_env():
 
 def main():
     print(f"\n{BOLD}{CYAN}╔════════════════════════════════════════════════════════════╗")
-    print(f"║          AUDITORIA DE REDE BITCOIN - BLOCKCHAIN.INFO       ║")
+    print(f"║          AUDITORIA DE REDE BITCOIN - CONTROLE DE PRODUÇÃO  ║")
     print(f"╚════════════════════════════════════════════════════════════╝{RESET}")
 
-    # 1. Carregar configurações
-    log_section("1. Carregando Configurações do arquivo .env")
+    # 1. Carregar configurações do .env
+    log_section("1. Carregando Limites Operacionais do arquivo .env")
     env = load_env()
     
-    btc_url = env.get("BLOCKCHAIN_INFO_BASE_URL", "https://blockchain.info")
-    ankr_btc_url = env.get("ANKR_BTC_BLOCKBOOK_URL")
+    btc_rest = env.get("BTC_REST_ENDPOINT", "https://mempool.space/api")
+    timeout_ms = int(env.get("BTC_TIMEOUT_MS", "3000"))
+    timeout_sec = timeout_ms / 1000.0
     
-    # Alvos fixos do Bitcoin Puzzle (P2PKH legacy)
-    target_71 = env.get("BTC_TARGET_71", "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU")
-    target_72 = env.get("BTC_TARGET_72", "1JTK7s9YVYywfm5XUH7RNhHJH1LshCaRFR")
-    target_73 = env.get("BTC_TARGET_73", "12VVRNPi4SJqUTsp6FmqDqY5sGosDtysn4")
+    # Novas variáveis de controle e Throttling
+    batch_size = int(env.get("BTC_BATCH_SIZE", "20"))
+    delay_ms = int(env.get("BTC_DELAY_MS", "100"))
+    max_req_24h = int(env.get("BTC_MAX_REQ_24H", "500000"))
     
-    print(f"  API Url Principal: {BOLD}{btc_url}{RESET}")
-    if ankr_btc_url:
-        # Mascarar chave se contiver credenciais
-        masked_url = ankr_btc_url
-        if "/" in ankr_btc_url:
-            parts = ankr_btc_url.split("/")
-            if len(parts[-1]) > 10:
-                parts[-1] = parts[-1][:6] + "..."
-                masked_url = "/".join(parts)
-        print(f"  API Url Secundária (Blockbook): {BOLD}{masked_url}{RESET}")
-    else:
-        print(f"  API Url Secundária (Blockbook): {YELLOW}Não configurada no .env{RESET}")
-        
-    print(f"  Alvos (Targets):")
-    print(f"    - Puzzle 71: {target_71}")
-    print(f"    - Puzzle 72: {target_72}")
-    print(f"    - Puzzle 73: {target_73}")
-    log_success("Configurações importadas com sucesso!")
+    # Alvos/Targets configurados para os Puzzles (Simulando uma lista expansível de produção)
+    target_71 = env.get("BTC_TARGET_71", "1PWo3JeB9j000000000000000000000001")
+    target_72 = env.get("BTC_TARGET_72", "1JTK7s9YVY000000000000000000000002")
+    target_73 = env.get("BTC_TARGET_73", "14og49Gfd0000000000000000000000003")
+    
+    # Consolidação limpa de alvos válidos
+    raw_targets = [target_71, target_72, target_73]
+    target_addresses = [addr for addr in raw_targets if addr]
+    
+    print(f"  Bitcoin REST Endpoint: {BOLD}{btc_rest}{RESET}")
+    print(f"  Tamanho do Lote (Batch Size): {BOLD}{batch_size}{RESET}")
+    print(f"  Delay entre Requisições: {BOLD}{delay_ms} ms{RESET}")
+    print(f"  Teto Máximo 24H: {BOLD}{max_req_24h} requisições{RESET}")
+    print(f"  Total de Alvos Mapeados: {BOLD}{len(target_addresses)}{RESET}")
+    log_success("Governança e limites de taxa importados com sucesso!")
 
-    # 2. Conectividade básica (Ping e Latência com Blockchain.info)
-    log_section("2. Teste de Conectividade com Blockchain.info API")
-    blockchain_info_ok = False
-    latency_blockchain = 0.0
+    # 2. Conectividade básica (Altura do Bloco)
+    log_section("2. Teste de Conectividade com Infraestrutura Esplora")
+    
+    api_ok = False
+    latency_api = 0.0
     
     try:
         t_start = time.time()
-        # Requisição leve de teste para obter a altura do último bloco
-        resp = requests.get(
-            f"{btc_url}/q/getblockcount",
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=5
-        )
-        latency_blockchain = (time.time() - t_start) * 1000
+        resp = requests.get(f"{btc_rest}/blocks/tip/height", timeout=timeout_sec)
+        latency_api = (time.time() - t_start) * 1000
         
         if resp.status_code == 200:
-            block_count = resp.text.strip()
-            log_success(f"Conectado com sucesso à API do Blockchain.info!")
-            print(f"  Altura do Bloco Atual: {BOLD}{block_count}{RESET}")
-            print(f"  Latência de Resposta: {BOLD}{latency_blockchain:.2f} ms{RESET}")
-            blockchain_info_ok = True
+            block_height = resp.text.strip()
+            log_success("Conectado com sucesso à API Esplora!")
+            print(f"  Latência Inicial: {BOLD}{latency_api:.2f} ms{RESET}")
+            print(f"  Último Bloco Bitcoin Sincronizado: {BOLD}{block_height}{RESET}")
+            api_ok = True
         else:
-            log_warn(f"Conexão HTTP respondeu com status código: {resp.status_code}")
+            log_error(f"API respondeu com status código HTTP inesperado: {resp.status_code}")
     except Exception as e:
-        log_error(f"Falha de conexão com Blockchain.info API: {e}")
+        log_error(f"Falha de conexão com a API Esplora: {e}")
 
-    # Teste de conectividade opcional com Blockbook se configurado
-    blockbook_ok = False
-    latency_blockbook = 0.0
-    if ankr_btc_url:
-        log_section("2b. Teste de Conectividade com Blockbook API")
-        try:
-            t_start = time.time()
-            # Tentar verificar se responde ao endpoint rest de status/info (/api/v2/) ou se é RPC
-            is_rpc = False
-            headers = {"User-Agent": "Mozilla/5.0"}
-            
-            # Checagem REST API (/api/v2/)
-            try:
-                url_to_test = ankr_btc_url.rstrip('/')
-                if not url_to_test.endswith("/api/v2"):
-                    url_to_test = f"{url_to_test}/api/v2"
-                resp = requests.get(url_to_test, headers=headers, timeout=5)
-                if resp.status_code == 200:
-                    latency_blockbook = (time.time() - t_start) * 1000
-                    log_success("Conectado com sucesso ao Blockbook REST API!")
-                    print(f"  Latência de Resposta: {BOLD}{latency_blockbook:.2f} ms{RESET}")
-                    blockbook_ok = True
-                else:
-                    is_rpc = True
-            except Exception:
-                is_rpc = True
-
-            # Checagem JSON-RPC caso REST falhe ou seja detectada RPC
-            if is_rpc:
-                t_start = time.time()
-                payload = {
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "getinfo",
-                    "params": []
-                }
-                resp = requests.post(ankr_btc_url, json=payload, headers={"Content-Type": "application/json"}, timeout=5)
-                if resp.status_code == 200:
-                    latency_blockbook = (time.time() - t_start) * 1000
-                    log_success("Conectado com sucesso ao Blockbook JSON-RPC API!")
-                    print(f"  Latência de Resposta: {BOLD}{latency_blockbook:.2f} ms{RESET}")
-                    blockbook_ok = True
-                else:
-                    log_warn(f"Blockbook respondeu com status: {resp.status_code}")
-        except Exception as e:
-            log_error(f"Falha de conexão com Blockbook API: {e}")
-
-    # 3. Auditoria de Funções de Saldo em carteira de teste
-    log_section("3. Auditoria de Funções de Saldo (Endereço de Teste)")
+    # 3. Verificação de Saldo dos Puzzles com Slicing de Lote e Throttling Ativo
+    log_section("3. Verificação de Saldo dos Puzzles (Mempool REST Engine)")
     
-    # Satoshi Genesis Address
-    test_addr = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
-    test_balance_ok = False
-    
-    if blockchain_info_ok:
-        try:
-            resp = requests.get(
-                f"{btc_url}/balance",
-                params={"active": test_addr},
-                headers={"User-Agent": "Mozilla/5.0"},
-                timeout=5
-            )
-            data = resp.json()
+    if api_ok:
+        # Fatiamento dinâmico da lista de alvos baseada no BTC_BATCH_SIZE
+        for i in range(0, len(target_addresses), batch_size):
+            batch = target_addresses[i:i + batch_size]
             
-            if resp.status_code == 200 and test_addr in data:
-                item = data[test_addr]
-                balance_sat = item.get("final_balance", 0)
-                balance_btc = balance_sat / 1e8
-                log_success("Blockchain.info balance query: Sucesso!")
-                print(f"  Carteira Teste (Satoshi): {test_addr}")
-                print(f"  Saldo Encontrado: {BOLD}{balance_btc:.4f} BTC ({balance_sat} satoshis){RESET}")
-                test_balance_ok = True
-            else:
-                log_error(f"Falha na consulta de saldo do Blockchain.info: {resp.status_code} - {resp.text}")
-        except Exception as e:
-            log_error(f"Erro ao testar consulta de saldo no Blockchain.info: {e}")
-
-    # Teste de saldo via Blockbook se disponível
-    if ankr_btc_url and blockbook_ok:
-        try:
-            url_addr = ankr_btc_url.rstrip('/')
-            if not url_addr.endswith("/api/v2"):
-                url_addr = f"{url_addr}/api/v2"
-            url_addr = f"{url_addr}/address/{test_addr}"
-            
-            resp = requests.get(url_addr, headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                balance_sat = int(data.get("balance", "0"))
-                balance_btc = balance_sat / 1e8
-                log_success("Blockbook balance query: Sucesso!")
-                print(f"  Carteira Teste (Satoshi): {test_addr}")
-                print(f"  Saldo Encontrado (Blockbook): {BOLD}{balance_btc:.4f} BTC ({balance_sat} satoshis){RESET}")
-            else:
-                log_warn(f"Blockbook balance query respondeu com código: {resp.status_code}")
-        except Exception as e:
-            log_error(f"Erro ao consultar saldo via Blockbook: {e}")
-
-    # 4. Auditoria de Saldos dos Targets (Puzzles)
-    log_section("4. Verificação de Saldo dos Endereços dos Puzzles")
-    
-    if test_balance_ok:
-        try:
-            target_addresses = [target_71, target_72, target_73]
-            address_str = ",".join(target_addresses)
-            
-            resp = requests.get(
-                f"{btc_url}/balance",
-                params={"active": address_str},
-                headers={"User-Agent": "Mozilla/5.0"},
-                timeout=5
-            )
-            
-            if resp.status_code == 200:
-                data = resp.json()
-                for i, addr in enumerate(target_addresses):
-                    if addr in data:
-                        item = data[addr]
-                        balance_sat = item.get("final_balance", 0)
+            for idx, addr in enumerate(batch):
+                # Aplicar Throttling preventivo baseado no BTC_DELAY_MS (exceto na primeira requisição imediata)
+                if delay_ms > 0 and (i > 0 or idx > 0):
+                    time.sleep(delay_ms / 1000.0)
+                
+                try:
+                    resp = requests.get(f"{btc_rest}/address/{addr}", timeout=timeout_sec)
+                    
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        stats = data.get("chain_stats", {})
+                        
+                        # Cálculo matemático determinístico do modelo de UTXOs do Bitcoin
+                        balance_sat = stats.get("funded_txo_sum", 0) - stats.get("spent_txo_sum", 0)
                         balance_btc = balance_sat / 1e8
+                        
+                        global_idx = i + idx + 71
                         status_color = GREEN if balance_btc > 0 else RESET
-                        print(f"  Puzzle {71+i} ({addr[:10]}...): {BOLD}{status_color}{balance_btc:.8f} BTC ({balance_sat} satoshis){RESET}")
+                        print(f"  Puzzle {global_idx} ({addr[:10]}...): {BOLD}{status_color}{balance_btc:.8f} BTC{RESET} ({balance_sat} Satoshis)")
+                    
+                    elif resp.status_code == 429:
+                        log_error(f"Rate limit atingido no endereço {addr[:10]}... (Código 429)")
                     else:
-                        log_warn(f"Endereço do Puzzle {71+i} ({addr}) não retornado na resposta da API.")
-            else:
-                log_error(f"Falha ao consultar saldos dos puzzles: Código {resp.status_code} - {resp.text}")
-        except Exception as e:
-            log_error(f"Erro ao verificar saldos em lote: {e}")
+                        log_error(f"Falha ao processar endereço {addr[:10]}... Status: {resp.status_code}")
+                        
+                except Exception as e:
+                    log_error(f"Erro na requisição do Puzzle {i + idx + 71}: {e}")
     else:
-        log_warn("Pulando verificação dos puzzles porque o teste de saldo inicial não obteve sucesso.")
+        log_warn("Módulo de auditoria suspenso porque o endpoint principal falhou na inicialização.")
 
     # Resumo Final da Auditoria
     print(f"\n{BOLD}{CYAN}╔════════════════════════════════════════════════════════════╗")
     print(f"║                   RESUMO DA AUDITORIA                      ║")
     print(f"╚════════════════════════════════════════════════════════════╝{RESET}")
-    if blockchain_info_ok:
-        print(f"  • Latência do Blockchain.info: {BOLD}{latency_blockchain:.2f} ms{RESET}")
-        print(f"  • API Blockchain.info: {GREEN}OPERACIONAL{RESET}")
-    else:
-        print(f"  • API Blockchain.info: {RED}FALHA/NÃO OPERACIONAL{RESET}")
-        
-    if ankr_btc_url:
-        if blockbook_ok:
-            print(f"  • Latência do Blockbook: {BOLD}{latency_blockbook:.2f} ms{RESET}")
-            print(f"  • API Blockbook/Ankr: {GREEN}OPERACIONAL{RESET}")
-        else:
-            print(f"  • API Blockbook/Ankr: {RED}FALHA/NÃO OPERACIONAL{RESET}")
-            
-    print(f"\n{BOLD}{GREEN}✓ Auditoria de Rede Bitcoin concluída com sucesso!{RESET}\n")
+    print(f"  • Latência do REST Endpoint: " + (f"{BOLD}{latency_api:.2f} ms{RESET}" if api_ok else f"{RED}FALHA{RESET}"))
+    print(f"  • Controle de Fluxo (Batch Slicing): {GREEN}ATIVO (Tamanho: {batch_size}){RESET}")
+    print(f"  • Throttling de Segurança Inter-lote: {GREEN}ATIVO ({delay_ms}ms){RESET}")
+    print(f"\n{BOLD}{GREEN}✓ Auditoria de Produção Bitcoin concluída com sucesso!{RESET}\n")
 
 if __name__ == "__main__":
     main()

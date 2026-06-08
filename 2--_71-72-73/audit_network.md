@@ -113,5 +113,5 @@ O projeto disponibiliza scripts focados em verificar a saúde das RPCs e a valid
     python3 audit_ethereum_network.py
     python3 audit_solana_network.py
     python3 audit_polygon_network.py
-    python3 audit_bnb_network.py
+    uv run audit_bnb_network.py
     ```

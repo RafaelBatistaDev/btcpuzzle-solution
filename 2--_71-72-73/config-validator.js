@@ -265,6 +265,21 @@ export function validateConfig() {
     if (!BLOCKBOOK_TIMEOUT_MS.valid) errors.push(BLOCKBOOK_TIMEOUT_MS.error);
   }
 
+  const BTC_BATCH_SIZE = isValidInteger(process.env.BTC_BATCH_SIZE || '20', 'BTC_BATCH_SIZE', 1);
+  if (!BTC_BATCH_SIZE.valid) errors.push(BTC_BATCH_SIZE.error);
+
+  const BTC_DELAY_MS = isValidInteger(process.env.BTC_DELAY_MS || '2000', 'BTC_DELAY_MS', 0);
+  if (!BTC_DELAY_MS.valid) errors.push(BTC_DELAY_MS.error);
+
+  const BTC_INITIAL_DELAY_MS = isValidInteger(process.env.BTC_INITIAL_DELAY_MS || '0', 'BTC_INITIAL_DELAY_MS', 0);
+  if (!BTC_INITIAL_DELAY_MS.valid) errors.push(BTC_INITIAL_DELAY_MS.error);
+
+  const BTC_MAX_REQ_24H = isValidInteger(process.env.BTC_MAX_REQ_24H || '30000', 'BTC_MAX_REQ_24H', 1);
+  if (!BTC_MAX_REQ_24H.valid) errors.push(BTC_MAX_REQ_24H.error);
+
+  const BTC_TIMEOUT_MS = isValidInteger(process.env.BTC_TIMEOUT_MS || '3000', 'BTC_TIMEOUT_MS', 1);
+  if (!BTC_TIMEOUT_MS.valid) errors.push(BTC_TIMEOUT_MS.error);
+
   // ========================================
   // ETHEREUM CONFIGURATION
   // ========================================
@@ -292,30 +307,26 @@ export function validateConfig() {
   );
   if (!ETH_TARGET_73.valid) errors.push(ETH_TARGET_73.error);
 
-  const ETH_DELAY_MS = isValidInteger(process.env.ETH_DELAY_MS || '200', 'ETH_DELAY_MS', 0);
+  const ETH_BATCH_SIZE = isValidInteger(process.env.ETH_BATCH_SIZE || '20', 'ETH_BATCH_SIZE', 1);
+  if (!ETH_BATCH_SIZE.valid) errors.push(ETH_BATCH_SIZE.error);
+
+  const ETH_DELAY_MS = isValidInteger(process.env.ETH_DELAY_MS || '80', 'ETH_DELAY_MS', 0);
   if (!ETH_DELAY_MS.valid) errors.push(ETH_DELAY_MS.error);
 
   const ETH_INITIAL_DELAY_MS = isValidInteger(process.env.ETH_INITIAL_DELAY_MS || '0', 'ETH_INITIAL_DELAY_MS', 0);
   if (!ETH_INITIAL_DELAY_MS.valid) errors.push(ETH_INITIAL_DELAY_MS.error);
 
-  const ETH_MAX_REQ_24H = isValidInteger(process.env.ETH_MAX_REQ_24H || '100000', 'ETH_MAX_REQ_24H', 1);
+  const ETH_MAX_REQ_24H = isValidInteger(process.env.ETH_MAX_REQ_24H || '500000', 'ETH_MAX_REQ_24H', 1);
   if (!ETH_MAX_REQ_24H.valid) errors.push(ETH_MAX_REQ_24H.error);
+
+  const ETH_TIMEOUT_MS = isValidInteger(process.env.ETH_TIMEOUT_MS || '10000', 'ETH_TIMEOUT_MS', 1);
+  if (!ETH_TIMEOUT_MS.valid) errors.push(ETH_TIMEOUT_MS.error);
 
   // ========================================
   // SOLANA CONFIGURATION
   // ========================================
   const solUrl = isValidUrl(process.env.SOL_RPC_ENDPOINT, 'SOL_RPC_ENDPOINT');
   if (!solUrl.valid) errors.push(solUrl.error);
-
-  const SOL_DELAY_MS = isValidInteger(process.env.SOL_DELAY_MS, 'SOL_DELAY_MS', 0);
-  if (!SOL_DELAY_MS.valid) errors.push(SOL_DELAY_MS.error);
-
-  const SOL_TIMEOUT_MS = isValidInteger(
-    process.env.SOL_TIMEOUT_MS,
-    'SOL_TIMEOUT_MS',
-    1
-  );
-  if (!SOL_TIMEOUT_MS.valid) errors.push(SOL_TIMEOUT_MS.error);
 
   const SOL_TARGET_71 = isValidAddress(
     process.env.SOL_TARGET_71,
@@ -337,6 +348,21 @@ export function validateConfig() {
     'solana'
   );
   if (!SOL_TARGET_73.valid) errors.push(SOL_TARGET_73.error);
+
+  const SOL_BATCH_SIZE = isValidInteger(process.env.SOL_BATCH_SIZE || '20', 'SOL_BATCH_SIZE', 1);
+  if (!SOL_BATCH_SIZE.valid) errors.push(SOL_BATCH_SIZE.error);
+
+  const SOL_DELAY_MS = isValidInteger(process.env.SOL_DELAY_MS || '110', 'SOL_DELAY_MS', 0);
+  if (!SOL_DELAY_MS.valid) errors.push(SOL_DELAY_MS.error);
+
+  const SOL_INITIAL_DELAY_MS = isValidInteger(process.env.SOL_INITIAL_DELAY_MS || '0', 'SOL_INITIAL_DELAY_MS', 0);
+  if (!SOL_INITIAL_DELAY_MS.valid) errors.push(SOL_INITIAL_DELAY_MS.error);
+
+  const SOL_MAX_REQ_24H = isValidInteger(process.env.SOL_MAX_REQ_24H || '33000', 'SOL_MAX_REQ_24H', 1);
+  if (!SOL_MAX_REQ_24H.valid) errors.push(SOL_MAX_REQ_24H.error);
+
+  const SOL_TIMEOUT_MS = isValidInteger(process.env.SOL_TIMEOUT_MS || '3000', 'SOL_TIMEOUT_MS', 1);
+  if (!SOL_TIMEOUT_MS.valid) errors.push(SOL_TIMEOUT_MS.error);
 
   // ========================================
   // POLYGON CONFIGURATION
@@ -367,6 +393,21 @@ export function validateConfig() {
     'polygon'
   );
   if (!POLYGON_TARGET_73.valid) errors.push(POLYGON_TARGET_73.error);
+
+  const POLYGON_BATCH_SIZE = isValidInteger(process.env.POLYGON_BATCH_SIZE || '20', 'POLYGON_BATCH_SIZE', 1);
+  if (!POLYGON_BATCH_SIZE.valid) errors.push(POLYGON_BATCH_SIZE.error);
+
+  const POLYGON_DELAY_MS = isValidInteger(process.env.POLYGON_DELAY_MS || '300', 'POLYGON_DELAY_MS', 0);
+  if (!POLYGON_DELAY_MS.valid) errors.push(POLYGON_DELAY_MS.error);
+
+  const POLYGON_INITIAL_DELAY_MS = isValidInteger(process.env.POLYGON_INITIAL_DELAY_MS || '100', 'POLYGON_INITIAL_DELAY_MS', 0);
+  if (!POLYGON_INITIAL_DELAY_MS.valid) errors.push(POLYGON_INITIAL_DELAY_MS.error);
+
+  const POLYGON_MAX_REQ_24H = isValidInteger(process.env.POLYGON_MAX_REQ_24H || '10000', 'POLYGON_MAX_REQ_24H', 1);
+  if (!POLYGON_MAX_REQ_24H.valid) errors.push(POLYGON_MAX_REQ_24H.error);
+
+  const POLYGON_TIMEOUT_MS = isValidInteger(process.env.POLYGON_TIMEOUT_MS || '5000', 'POLYGON_TIMEOUT_MS', 1);
+  if (!POLYGON_TIMEOUT_MS.valid) errors.push(POLYGON_TIMEOUT_MS.error);
 
   // ========================================
   // BNB CONFIGURATION
@@ -400,14 +441,20 @@ export function validateConfig() {
   );
   if (!BNB_TARGET_73.valid) errors.push(BNB_TARGET_73.error);
 
-  const BNB_DELAY_MS = isValidInteger(process.env.BNB_DELAY_MS || '200', 'BNB_DELAY_MS', 0);
+  const BNB_BATCH_SIZE = isValidInteger(process.env.BNB_BATCH_SIZE || '20', 'BNB_BATCH_SIZE', 1);
+  if (!BNB_BATCH_SIZE.valid) errors.push(BNB_BATCH_SIZE.error);
+
+  const BNB_DELAY_MS = isValidInteger(process.env.BNB_DELAY_MS || '50', 'BNB_DELAY_MS', 0);
   if (!BNB_DELAY_MS.valid) errors.push(BNB_DELAY_MS.error);
 
   const BNB_INITIAL_DELAY_MS = isValidInteger(process.env.BNB_INITIAL_DELAY_MS || '100', 'BNB_INITIAL_DELAY_MS', 0);
   if (!BNB_INITIAL_DELAY_MS.valid) errors.push(BNB_INITIAL_DELAY_MS.error);
 
-  const BNB_MAX_REQ_24H = isValidInteger(process.env.BNB_MAX_REQ_24H || '100000', 'BNB_MAX_REQ_24H', 1);
+  const BNB_MAX_REQ_24H = isValidInteger(process.env.BNB_MAX_REQ_24H || '500000', 'BNB_MAX_REQ_24H', 1);
   if (!BNB_MAX_REQ_24H.valid) errors.push(BNB_MAX_REQ_24H.error);
+
+  const BNB_TIMEOUT_MS = isValidInteger(process.env.BNB_TIMEOUT_MS || '10000', 'BNB_TIMEOUT_MS', 1);
+  if (!BNB_TIMEOUT_MS.valid) errors.push(BNB_TIMEOUT_MS.error);
 
   // ========================================
   // RELATÓRIO FINAL
@@ -443,6 +490,11 @@ export function getConfig() {
     ANKR_BTC_BLOCKBOOK_URL: process.env.ANKR_BTC_BLOCKBOOK_URL,
     BLOCKBOOK_DELAY_MS: parseInt(process.env.BLOCKBOOK_DELAY_MS || '0', 10),
     BLOCKBOOK_TIMEOUT_MS: parseInt(process.env.BLOCKBOOK_TIMEOUT_MS || '10000', 10),
+    BTC_BATCH_SIZE: parseInt(process.env.BTC_BATCH_SIZE || '20', 10),
+    BTC_DELAY_MS: parseInt(process.env.BTC_DELAY_MS || '2000', 10),
+    BTC_INITIAL_DELAY_MS: parseInt(process.env.BTC_INITIAL_DELAY_MS || '0', 10),
+    BTC_MAX_REQ_24H: parseInt(process.env.BTC_MAX_REQ_24H || '30000', 10),
+    BTC_TIMEOUT_MS: parseInt(process.env.BTC_TIMEOUT_MS || '3000', 10),
 
     // Ethereum
     RPC_ENDPOINT: process.env.RPC_ENDPOINT,
@@ -450,14 +502,19 @@ export function getConfig() {
     ETH_TARGET_71: process.env.ETH_TARGET_71,
     ETH_TARGET_72: process.env.ETH_TARGET_72,
     ETH_TARGET_73: process.env.ETH_TARGET_73,
-    ETH_DELAY_MS: parseInt(process.env.ETH_DELAY_MS || '200', 10),
+    ETH_BATCH_SIZE: parseInt(process.env.ETH_BATCH_SIZE || '20', 10),
+    ETH_DELAY_MS: parseInt(process.env.ETH_DELAY_MS || '80', 10),
     ETH_INITIAL_DELAY_MS: parseInt(process.env.ETH_INITIAL_DELAY_MS || '0', 10),
-    ETH_MAX_REQ_24H: parseInt(process.env.ETH_MAX_REQ_24H || '100000', 10),
+    ETH_MAX_REQ_24H: parseInt(process.env.ETH_MAX_REQ_24H || '500000', 10),
+    ETH_TIMEOUT_MS: parseInt(process.env.ETH_TIMEOUT_MS || '10000', 10),
 
     // Solana
     SOL_RPC_ENDPOINT: process.env.SOL_RPC_ENDPOINT,
-    SOL_DELAY_MS: parseInt(process.env.SOL_DELAY_MS, 10),
-    SOL_TIMEOUT_MS: parseInt(process.env.SOL_TIMEOUT_MS, 10),
+    SOL_BATCH_SIZE: parseInt(process.env.SOL_BATCH_SIZE || '20', 10),
+    SOL_DELAY_MS: parseInt(process.env.SOL_DELAY_MS || '110', 10),
+    SOL_INITIAL_DELAY_MS: parseInt(process.env.SOL_INITIAL_DELAY_MS || '0', 10),
+    SOL_MAX_REQ_24H: parseInt(process.env.SOL_MAX_REQ_24H || '33000', 10),
+    SOL_TIMEOUT_MS: parseInt(process.env.SOL_TIMEOUT_MS || '3000', 10),
     SOL_TARGET_71: process.env.SOL_TARGET_71,
     SOL_TARGET_72: process.env.SOL_TARGET_72,
     SOL_TARGET_73: process.env.SOL_TARGET_73,
@@ -468,8 +525,11 @@ export function getConfig() {
     POLYGON_TARGET_71: process.env.POLYGON_TARGET_71,
     POLYGON_TARGET_72: process.env.POLYGON_TARGET_72,
     POLYGON_TARGET_73: process.env.POLYGON_TARGET_73,
-    POLYGON_DELAY_MS: parseInt(process.env.POLYGON_DELAY_MS, 10),
-    POLYGON_TIMEOUT_MS: parseInt(process.env.POLYGON_TIMEOUT_MS, 10),
+    POLYGON_BATCH_SIZE: parseInt(process.env.POLYGON_BATCH_SIZE || '20', 10),
+    POLYGON_DELAY_MS: parseInt(process.env.POLYGON_DELAY_MS || '300', 10),
+    POLYGON_INITIAL_DELAY_MS: parseInt(process.env.POLYGON_INITIAL_DELAY_MS || '100', 10),
+    POLYGON_MAX_REQ_24H: parseInt(process.env.POLYGON_MAX_REQ_24H || '10000', 10),
+    POLYGON_TIMEOUT_MS: parseInt(process.env.POLYGON_TIMEOUT_MS || '5000', 10),
 
     // BNB
     BNB_RPC_ENDPOINT: process.env.BNB_RPC_ENDPOINT,
@@ -477,10 +537,11 @@ export function getConfig() {
     BNB_TARGET_71: process.env.BNB_TARGET_71,
     BNB_TARGET_72: process.env.BNB_TARGET_72,
     BNB_TARGET_73: process.env.BNB_TARGET_73,
-    BNB_DELAY_MS: parseInt(process.env.BNB_DELAY_MS || '200', 10),
+    BNB_BATCH_SIZE: parseInt(process.env.BNB_BATCH_SIZE || '20', 10),
+    BNB_DELAY_MS: parseInt(process.env.BNB_DELAY_MS || '50', 10),
     BNB_INITIAL_DELAY_MS: parseInt(process.env.BNB_INITIAL_DELAY_MS || '100', 10),
-    BNB_MAX_REQ_24H: parseInt(process.env.BNB_MAX_REQ_24H || '100000', 10),
-    BNB_TIMEOUT_MS: parseInt(process.env.BNB_TIMEOUT_MS, 10),
+    BNB_MAX_REQ_24H: parseInt(process.env.BNB_MAX_REQ_24H || '500000', 10),
+    BNB_TIMEOUT_MS: parseInt(process.env.BNB_TIMEOUT_MS || '10000', 10),
   };
 }
 

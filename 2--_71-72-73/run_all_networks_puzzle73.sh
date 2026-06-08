@@ -26,9 +26,9 @@ check_internet() {
 
 # Função para testar API de cada rede
 test_api_bitcoin() {
-  local url="${BTC_RPC_ENDPOINT:-https://rpc.ankr.com/premium-http/btc_blockbook/af6ba3816c496e95bd422a2775ce65ece906e9d4a220ab084d538d01ea0176e6}"
-  echo -n "  🔗 Bitcoin Blockbook... "
-  if curl -s -m 5 -H "Accept: application/json" -H "User-Agent: Puzzle-Solver/1.0" "$url/api/v2/" > /dev/null 2>&1; then
+  local url="${BLOCKCHAIN_INFO_BASE_URL:-https://blockchain.info}"
+  echo -n "  🔗 Bitcoin API (Blockchain.info)... "
+  if curl -s -m 5 "${url}/balance?active=1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU" > /dev/null 2>&1; then
     echo -e "${GREEN}✅${NC}"
     return 0
   else
