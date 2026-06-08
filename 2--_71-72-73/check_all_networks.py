@@ -12,9 +12,72 @@ import json
 from pathlib import Path
 from typing import List, Dict, Tuple
 
+def extract_address(data: dict) -> str:
+    """
+    Extrai o endereço de forma flexível de diferentes formatos de JSON.
+    """
+    if 'addr' in data:
+        return str(data['addr'])
+    if 'address' in data:
+        return str(data['address'])
+    
+    # Verifica dentro de 'formats' (formato Bitcoin)
+    formats = data.get('formats')
+    if isinstance(formats, dict):
+        addresses = []
+        for fmt_name, fmt_data in formats.items():
+            if isinstance(fmt_data, dict):
+                addr = fmt_data.get('address') or fmt_data.get('addr')
+                if addr:
+                    addresses.append(f"{fmt_name}:{addr}")
+        if addresses:
+            return ", ".join(addresses)
+            
+    return 'N/A'
+
+def check_line_balance(data: dict) -> Tuple[bool, str]:
+    """
+    Verifica se há algum saldo/balance diferente de 0 no dicionário.
+    Retorna: (possui_saldo, string_do_saldo)
+    """
+    keys_to_check = ['balance', 'saldo', 'totalBalance', 'total_balance']
+    
+    # 1. Verifica chaves no nível raiz
+    for key in keys_to_check:
+        if key in data:
+            val = data[key]
+            try:
+                if isinstance(val, str):
+                    val = val.strip()
+                f_val = float(val)
+                if f_val != 0.0:
+                    return True, str(val)
+            except (ValueError, TypeError):
+                pass
+                
+    # 2. Verifica dentro de 'formats' (formato Bitcoin)
+    formats = data.get('formats')
+    if isinstance(formats, dict):
+        for fmt_name, fmt_data in formats.items():
+            if isinstance(fmt_data, dict):
+                for key in ['balance', 'saldo']:
+                    if key in fmt_data:
+                        val = fmt_data[key]
+                        try:
+                            if isinstance(val, str):
+                                val = val.strip()
+                            f_val = float(val)
+                            if f_val != 0.0:
+                                return True, str(val)
+                        except (ValueError, TypeError):
+                            pass
+                            
+    return False, "0"
+
 def check_network(network_name: str, script_dir: Path) -> Tuple[int, List[Dict]]:
     """
-    Verifica endereços com saldo para uma rede específica
+    Verifica endereços com saldo para uma rede específica buscando em todos os arquivos
+    addresses_checked.jsonl e batch_history.jsonl.
     Retorna: (total_encontrado, lista_de_resultados)
     """
     
@@ -34,71 +97,69 @@ def check_network(network_name: str, script_dir: Path) -> Tuple[int, List[Dict]]
     total_found = 0
     files_found = 0
     
-    # Determina qual arquivo procurar (Bitcoin usa addresses_checked.jsonl, outros usam batch_history.jsonl)
-    if network_name.lower() == "bitcoin":
-        data_file_name = "addresses_checked.jsonl"
-    else:
-        data_file_name = "batch_history.jsonl"
+    # Procuramos por ambos os arquivos em todas as redes
+    data_file_names = ["addresses_checked.jsonl", "batch_history.jsonl"]
     
     print(f"\n{'='*60}")
     print(f"🔍 {network_name.upper()}")
     print(f"{'='*60}")
     
-    # Processa cada pasta de puzzle
+    # Processa cada pasta de puzzle e cada arquivo jsonl
     for puzzle_folder in puzzle_folders:
-        jsonl_file = puzzle_folder / data_file_name
-        
-        if not jsonl_file.exists():
-            continue
-        
-        files_found += 1
-        puzzle_name = puzzle_folder.name
-        
-        try:
-            with open(jsonl_file, 'r', encoding='utf-8') as f:
-                for line_num, line in enumerate(f, 1):
-                    if not line.strip():
-                        continue
-                    
-                    try:
-                        data = json.loads(line)
-                        
-                        # Verifica balance
-                        balance_str = data.get('balance', '0')
+        for data_file_name in data_file_names:
+            jsonl_file = puzzle_folder / data_file_name
+            
+            if not jsonl_file.exists():
+                continue
+            
+            files_found += 1
+            puzzle_name = puzzle_folder.name
+            
+            try:
+                with open(jsonl_file, 'r', encoding='utf-8') as f:
+                    for line_num, line in enumerate(f, 1):
+                        if not line.strip():
+                            continue
                         
                         try:
-                            balance = float(balance_str)
-                        except (ValueError, TypeError):
-                            balance = 0
-                        
-                        # Se tem saldo > 0
-                        if balance > 0:
-                            result = {
-                                'network': network_name,
-                                'puzzle': puzzle_name,
-                                'arquivo': str(jsonl_file),
-                                'linha': line_num,
-                                'endereco': data.get('addr', 'N/A'),
-                                'saldo': balance_str,
-                                'privHex': data.get('privHex', 'N/A'),
-                                'privkey_length': data.get('privkey_length', 0),
-                                'timestamp': data.get('timestamp', 'N/A'),
-                            }
-                            results.append(result)
-                            total_found += 1
+                            data = json.loads(line)
                             
-                            # Exibe resumo (sem detalhe completo)
-                            print(f"\n  ✓ {puzzle_name} - Linha {line_num}")
-                            print(f"    Endereço: {data.get('addr', 'N/A')}")
-                            print(f"    Saldo: {balance_str}")
-                    
-                    except json.JSONDecodeError as e:
-                        print(f"  ✗ Erro JSON na linha {line_num}: {e}")
-                        continue
-        
-        except Exception as e:
-            print(f"  ✗ Erro ao processar {jsonl_file}: {e}")
-            continue
+                            # Verifica se tem saldo diferente de 0
+                            has_bal, balance_str = check_line_balance(data)
+                            
+                            if has_bal:
+                                address = extract_address(data)
+                                
+                                result = {
+                                    'network': network_name,
+                                    'puzzle': puzzle_name,
+                                    'arquivo': str(jsonl_file.relative_to(script_dir)),
+                                    'linha': line_num,
+                                    'endereco': address,
+                                    'saldo': balance_str,
+                                }
+                                # Preserva todos os detalhes da linha original no JSON
+                                for k, v in data.items():
+                                    if k not in result:
+                                        result[k] = v
+                                # Salva também a linha original crua como detalhe extra
+                                result['linha_crua'] = line.strip()
+                                
+                                results.append(result)
+                                total_found += 1
+                                
+                                # Exibe resumo no terminal
+                                print(f"\n  ✓ {puzzle_name} ({data_file_name}) - Linha {line_num}")
+                                print(f"    Endereço: {address}")
+                                print(f"    Saldo: {balance_str}")
+                        
+                        except json.JSONDecodeError as e:
+                            print(f"  ✗ Erro JSON na linha {line_num} em {jsonl_file.name}: {e}")
+                            continue
+            
+            except Exception as e:
+                print(f"  ✗ Erro ao processar {jsonl_file}: {e}")
+                continue
     
     # Salva resultados
     if results:
@@ -109,7 +170,7 @@ def check_network(network_name: str, script_dir: Path) -> Tuple[int, List[Dict]]
         print(f"\n  ✅ Total: {total_found} endereços encontrados")
         print(f"  📄 Salvo em: {output_file.name}")
     elif files_found == 0:
-        print(f"\n  ℹ️  Sem dados (execute ./run_all_puzzles.sh primeiro)")
+        print(f"\n  ℹ️  Sem dados para processar nessa rede")
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write("")
     else:
