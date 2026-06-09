@@ -11,42 +11,26 @@ import json
 import os
 from pathlib import Path
 
+
 def is_line_with_balance(line: str) -> bool:
-    zero_pattern = '"balance":0,"btc":"0.00000000","txCount":0}}}'
-    if zero_pattern in line:
-        return False
     try:
         data = json.loads(line)
-        # Check root level balance
-        final_balance = data.get('finalBalance', 0) or data.get('totalBalance', 0)
-        final_btc = data.get('finalBalanceBtc', '0.00000000') or data.get('totalBtc', '0.00000000')
-        n_tx = data.get('nTx', 0)
-        
-        try:
-            btc_val = float(final_btc) if isinstance(final_btc, str) else final_btc
-        except:
-            btc_val = 0
-            
-        if final_balance > 0 or btc_val > 0 or n_tx > 0:
+
+        # Critério universal: finalBalance != 0 ou nTx != 0
+        if data.get('finalBalance', 0) != 0 or data.get('nTx', 0) != 0:
             return True
-            
-        # Check formats
-        formats = data.get('formats', {})
-        if isinstance(formats, dict):
-            for fmt_name, fmt_data in formats.items():
-                if isinstance(fmt_data, dict):
-                    balance = fmt_data.get('balance', 0)
-                    btc = fmt_data.get('btc', '0.00000000')
-                    tx_count = fmt_data.get('txCount', 0)
-                    try:
-                        b_val = float(btc) if isinstance(btc, str) else btc
-                    except:
-                        b_val = 0
-                    if balance > 0 or b_val > 0 or tx_count > 0:
-                        return True
-    except:
+
+        # Bitcoin: verificação adicional nos formatos aninhados
+        for fmt_data in data.get('formats', {}).values():
+            if isinstance(fmt_data, dict):
+                if fmt_data.get('balance', 0) != 0 or fmt_data.get('txCount', 0) != 0:
+                    return True
+
+    except (json.JSONDecodeError, Exception):
         pass
+
     return False
+
 
 def main():
     # Diretório base
@@ -93,7 +77,6 @@ def main():
                                 data = json.loads(line)
                                 results.append(line.strip())
                                 
-                                # Cabeçalho melhorado com informações fiéis ao arquivo
                                 print(f"\n  ✓ Linha {line_num}")
                                 print(f"    Timestamp: {data.get('timestamp', 'N/A')}")
                                 print(f"    Private Key (Hex): {data.get('privHex', 'N/A')}")
@@ -103,7 +86,6 @@ def main():
                                 total_btc_str = data.get('totalBtc', '0.00000000') or data.get('finalBalanceBtc', '0.00000000')
                                 print(f"    Saldo Total: {total_balance} satoshis = {total_btc_str} BTC")
                                 
-                                # Mostra TODOS os formatos com seus dados reais
                                 print(f"    Formatos disponíveis:")
                                 formats = data.get('formats', {})
                                 for format_name in ['BIP44U', 'BIP44C', 'BIP49', 'BIP84', 'BIP86']:
