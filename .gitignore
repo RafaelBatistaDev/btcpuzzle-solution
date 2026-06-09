@@ -77,7 +77,6 @@ Cofre Pessoal/
 HEAD
 FETCH_HEAD
 ORIG_HEAD
-config
 description
 objects/
 refs/
@@ -87,10 +86,11 @@ github-bare/
 **/github-bare/**/*.git/
 .rcloneignore
 state.json
-# Abra o .gitignore existente e adicione as seguintes linhas no final:
+# ── Checks and Archives ───────────────────────────────────────
 bitcoin/PUZZLE_71/addresses_checked.jsonl
-# Adicione ao final do .gitignore deste projeto:
 *_checked.jsonl
-*.jsonl
 *.tar.gz
 *.zst
+
+# ── Allow config folders for each network ──────────────────────
+!**/config/

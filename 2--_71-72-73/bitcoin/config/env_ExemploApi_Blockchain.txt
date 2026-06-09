@@ -1,0 +1,3 @@
+BLOCKCHAIN_INFO_BASE_URL=https://blockchain.info
+DELAY_MS=2000
+MAX_REQ_24H=30000

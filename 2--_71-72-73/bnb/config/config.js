@@ -1,0 +1,70 @@
+/**
+ * Configuração BNB (Binance Smart Chain) Puzzles 71, 72, 73
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Carrega .env se existir
+function loadEnv() {
+  const envPath = path.join(__dirname, '..', '..', '.env');
+  const env = {};
+  
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf-8');
+    content.split('\n').forEach(line => {
+      const [key, ...valueParts] = line.split('=');
+      if (key && !key.startsWith('#')) {
+        env[key.trim()] = valueParts.join('=').trim();
+      }
+    });
+  }
+  
+  return env;
+}
+
+const envConfig = loadEnv();
+
+export const PUZZLE_CONFIG = {
+  71: {
+    name: 'BNB_PUZZLE_71',
+    target: envConfig.BNB_TARGET_71 || process.env.BNB_TARGET_71 || '0x00000000219ab540356cBB839Cbe05303d7705Fa',
+    rangeMin: '0x0000000000000000000000000000000000000000000000400000000000000000',
+    rangeMax: '0x00000000000000000000000000000000000000000000007fffffffffffffffff',
+    initialPrivkey: '0x0000000000000000000000000000000000000000000000400000000000000000',
+  },
+  72: {
+    name: 'BNB_PUZZLE_72',
+    target: envConfig.BNB_TARGET_72 || process.env.BNB_TARGET_72 || '0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8',
+    rangeMin: '0x0000000000000000000000000000000000000000000000800000000000000000',
+    rangeMax: '0x0000000000000000000000000000000000000000000000ffffffffffffffffff',
+    initialPrivkey: '0x0000000000000000000000000000000000000000000000800000000000000000',
+  },
+  73: {
+    name: 'BNB_PUZZLE_73',
+    target: envConfig.BNB_TARGET_73 || process.env.BNB_TARGET_73 || '0x40B38765696e3d5d8d9d834D8AaD4bB6e418E489',
+    rangeMin: '0x0000000000000000000000000000000000000000000001000000000000000000',
+    rangeMax: '0x00000000000000000000000000000000000000000001ffffffffffffffffff',
+    initialPrivkey: '0x0000000000000000000000000000000000000000000001000000000000000000',
+  },
+};
+
+export const RUNTIME_CONFIG = {
+  BATCH_SIZE: Number(process.env.BNB_BATCH_SIZE || envConfig.BNB_BATCH_SIZE || process.env.BATCH_SIZE || envConfig.BATCH_SIZE || 20),
+  DELAY_MS: Number(process.env.BNB_DELAY_MS || envConfig.BNB_DELAY_MS || process.env.DELAY_MS || envConfig.DELAY_MS || 200),
+  INITIAL_DELAY_MS: Number(process.env.BNB_INITIAL_DELAY_MS || envConfig.BNB_INITIAL_DELAY_MS || 100),
+  MAX_REQ_24H: Number(process.env.BNB_MAX_REQ_24H || envConfig.BNB_MAX_REQ_24H || process.env.MAX_REQ_24H || envConfig.MAX_REQ_24H || 100000),
+  // RPC Endpoint: BNB
+  RPC_ENDPOINT: process.env.BNB_RPC_ENDPOINT || envConfig.BNB_RPC_ENDPOINT || 'https://bsc-dataseed.binance.org',
+  // BscScan API Key (centralizado)
+  ETHERSCAN_KEY: process.env.BSCSCAN_KEY || envConfig.BSCSCAN_KEY || 'YourApiKeyToken',
+  TIMEOUT_MS: Number(process.env.BNB_TIMEOUT_MS || envConfig.BNB_TIMEOUT_MS || process.env.TIMEOUT_MS || envConfig.TIMEOUT_MS || 10000),
+  // MODO SEQUENCIAL: Único modo de busca disponível
+  SEARCH_MODE: 'sequential',
+};
+
+// Puzzles 71, 72, 73 sempre ativos — sem dependência de PUZZLE_ID
+export const ACTIVE_PUZZLES = Object.values(PUZZLE_CONFIG);

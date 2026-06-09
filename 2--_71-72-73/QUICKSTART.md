@@ -2,15 +2,28 @@
 
 
 **Opção B: Executar um puzzle específico em todas as redes**
+
+./run_all_puzzles_bitcoin.sh
     ```bash
     ./run_all_networks_puzzle71.sh
+    ```
+    ```bash
     ./run_all_networks_puzzle72.sh
+    ```
+    ```bash
     ./run_all_networks_puzzle73.sh
     ```
-    toolbox create puzzle-solver
-    toolbox enter puzzle-solver
     
-    uv run check_all_networks.py
+```bash
+toolbox create puzzle-solver
+```
+```bash
+toolbox enter puzzle-solver
+ ```
+
+     ```bash
+     uv run check_all_networks.py
+     ```
     
 
 Este guia prático ensina a preparar o ambiente, configurar as credenciais, inicializar os solvers em paralelo e auditar os relatórios finais do projeto.
