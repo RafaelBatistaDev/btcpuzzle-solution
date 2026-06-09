@@ -11,6 +11,43 @@ import json
 import os
 from pathlib import Path
 
+def is_line_with_balance(line: str) -> bool:
+    zero_pattern = '"balance":0,"btc":"0.00000000","txCount":0}}}'
+    if zero_pattern in line:
+        return False
+    try:
+        data = json.loads(line)
+        # Check root level balance
+        final_balance = data.get('finalBalance', 0) or data.get('totalBalance', 0)
+        final_btc = data.get('finalBalanceBtc', '0.00000000') or data.get('totalBtc', '0.00000000')
+        n_tx = data.get('nTx', 0)
+        
+        try:
+            btc_val = float(final_btc) if isinstance(final_btc, str) else final_btc
+        except:
+            btc_val = 0
+            
+        if final_balance > 0 or btc_val > 0 or n_tx > 0:
+            return True
+            
+        # Check formats
+        formats = data.get('formats', {})
+        if isinstance(formats, dict):
+            for fmt_name, fmt_data in formats.items():
+                if isinstance(fmt_data, dict):
+                    balance = fmt_data.get('balance', 0)
+                    btc = fmt_data.get('btc', '0.00000000')
+                    tx_count = fmt_data.get('txCount', 0)
+                    try:
+                        b_val = float(btc) if isinstance(btc, str) else btc
+                    except:
+                        b_val = 0
+                    if balance > 0 or b_val > 0 or tx_count > 0:
+                        return True
+    except:
+        pass
+    return False
+
 def main():
     # Diretório base
     script_dir = Path(__file__).parent.absolute()
@@ -52,65 +89,9 @@ def main():
                             continue
                         
                         try:
-                            data = json.loads(line)
-                            
-                            # Verifica totalBalance e totalBtc
-                            total_balance = data.get('totalBalance', 0)
-                            total_btc_str = data.get('totalBtc', '0.00000000')
-                            
-                            # Converte totalBtc para float
-                            try:
-                                total_btc = float(total_btc_str) if isinstance(total_btc_str, str) else total_btc_str
-                            except (ValueError, TypeError):
-                                total_btc = 0
-                            
-                            has_balance = False
-                            addresses_with_balance = []
-                            
-                            # Se totalBalance > 0 ou totalBtc > 0, tem saldo
-                            if (isinstance(total_balance, (int, float)) and total_balance > 0) or total_btc > 0:
-                                has_balance = True
-                            
-                            # Verifica cada formato individual para TODOS os campos
-                            formats = data.get('formats', {})
-                            for format_name, format_data in formats.items():
-                                if isinstance(format_data, dict):
-                                    balance = format_data.get('balance', 0)
-                                    btc_str = format_data.get('btc', '0.00000000')
-                                    tx_count = format_data.get('txCount', 0)
-                                    
-                                    # Converte btc para float
-                                    try:
-                                        btc_val = float(btc_str) if isinstance(btc_str, str) else btc_str
-                                    except (ValueError, TypeError):
-                                        btc_val = 0
-                                    
-                                    # Se tem balance > 0 ou btc > 0 ou txCount > 0, registra
-                                    if (isinstance(balance, (int, float)) and balance > 0) or btc_val > 0 or tx_count > 0:
-                                        has_balance = True
-                                        addresses_with_balance.append({
-                                            'formato': format_name,
-                                            'endereco': format_data.get('address'),
-                                            'saldo_satoshis': balance,
-                                            'saldo_btc': btc_str,
-                                            'tx_count': tx_count
-                                        })
-                            
-                            # Se encontrou saldo em algum lugar, adiciona ao resultado
-                            if has_balance:
-                                result = {
-                                    'puzzle': puzzle_name,
-                                    'arquivo': str(jsonl_file),
-                                    'linha': line_num,
-                                    'saldo_total_satoshis': total_balance,
-                                    'saldo_total_btc': total_btc_str,
-                                    'enderecos_com_evidencia': addresses_with_balance,
-                                    'status': data.get('status', 'desconhecido'),
-                                    'privHex': data.get('privHex', 'N/A'),
-                                    'wif': data.get('wif', 'N/A'),
-                                    'dados_completos': data
-                                }
-                                results.append(result)
+                            if is_line_with_balance(line):
+                                data = json.loads(line)
+                                results.append(line.strip())
                                 
                                 # Cabeçalho melhorado com informações fiéis ao arquivo
                                 print(f"\n  ✓ Linha {line_num}")
@@ -118,6 +99,8 @@ def main():
                                 print(f"    Private Key (Hex): {data.get('privHex', 'N/A')}")
                                 print(f"    WIF: {data.get('wif', 'N/A')}")
                                 print(f"    Status: {data.get('status', 'desconhecido').upper()}")
+                                total_balance = data.get('totalBalance', 0) or data.get('finalBalance', 0)
+                                total_btc_str = data.get('totalBtc', '0.00000000') or data.get('finalBalanceBtc', '0.00000000')
                                 print(f"    Saldo Total: {total_balance} satoshis = {total_btc_str} BTC")
                                 
                                 # Mostra TODOS os formatos com seus dados reais
@@ -148,7 +131,7 @@ def main():
     if results:
         with open(output_file, 'w', encoding='utf-8') as f:
             for result in results:
-                f.write(json.dumps(result, ensure_ascii=False) + '\n')
+                f.write(result + '\n')
         
         print(f"\n✅ Total de endereços com saldo encontrados: {len(results)}")
         print(f"📄 Relatório salvo em: {output_file}")

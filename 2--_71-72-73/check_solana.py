@@ -11,6 +11,24 @@ import json
 import os
 from pathlib import Path
 
+def is_line_with_balance(line: str) -> bool:
+    zero_pattern = '"balance":"0","finalBalance":0,"finalBalanceSol":"0.000000000","uiAmount":0,"decimals":0,"note":"Account not initialized (zero balance)","nTx":0}'
+    if zero_pattern in line:
+        return False
+    try:
+        data = json.loads(line)
+        balance_str = data.get('balance', '0')
+        final_balance = data.get('finalBalance', 0)
+        final_sol = data.get('finalBalanceSol', '0.000000000')
+        ui_amount = data.get('uiAmount', 0)
+        n_tx = data.get('nTx', 0)
+        note = data.get('note', 'Account not initialized (zero balance)')
+        if balance_str != '0' or final_balance != 0 or final_sol != '0.000000000' or ui_amount != 0 or n_tx != 0 or note != 'Account not initialized (zero balance)':
+            return True
+    except:
+        pass
+    return False
+
 def main():
     # Diretório base
     script_dir = Path(__file__).parent.absolute()
@@ -49,42 +67,17 @@ def main():
                         continue
                     
                     try:
-                        data = json.loads(line)
-                        
-                        # Verifica balance
-                        balance_str = data.get('balance', '0')
-                        
-                        # Converte balance para float
-                        try:
-                            balance = float(balance_str)
-                        except (ValueError, TypeError):
-                            balance = 0
-                        
-                        # Se tem saldo > 0, adiciona ao resultado
-                        if balance > 0:
-                            balance_sol = balance / 1e9  # Converte Lamports para SOL
-                            
-                            result = {
-                                'puzzle': puzzle_name,
-                                'arquivo': str(jsonl_file),
-                                'linha': line_num,
-                                'endereco': data.get('addr', 'N/A'),
-                                'saldo_lamports': balance_str,
-                                'saldo_sol': f"{balance_sol:.9f}",
-                                'privHex': data.get('privHex', 'N/A'),
-                                'privkey_length': data.get('privkey_length', 0),
-                                'timestamp': data.get('timestamp', 'N/A'),
-                                'dados_completos': data
-                            }
-                            results.append(result)
+                        if is_line_with_balance(line):
+                            data = json.loads(line)
+                            results.append(line.strip())
                             
                             # Exibe informações encontradas
                             print(f"\n  ✓ Linha {line_num}")
                             print(f"    Timestamp: {data.get('timestamp', 'N/A')}")
-                            print(f"    Endereço: {data.get('addr', 'N/A')}")
+                            print(f"    Endereço: {data.get('addr', 'N/A') or data.get('address', 'N/A')}")
                             print(f"    Private Key (Hex): {data.get('privHex', 'N/A')}")
                             print(f"    Privkey Length: {data.get('privkey_length', 0)}")
-                            print(f"    Saldo: {balance_str} Lamports ({balance_sol:.9f} SOL)")
+                            print(f"    Saldo: {data.get('balance', '0')} Lamports")
                     
                     except json.JSONDecodeError as e:
                         print(f"  ✗ Erro ao decodificar linha {line_num}: {e}")
@@ -98,7 +91,7 @@ def main():
     if results:
         with open(output_file, 'w', encoding='utf-8') as f:
             for result in results:
-                f.write(json.dumps(result, ensure_ascii=False) + '\n')
+                f.write(result + '\n')
         
         print(f"\n✅ Total de endereços com saldo encontrados: {len(results)}")
         print(f"📄 Relatório salvo em: {output_file}")

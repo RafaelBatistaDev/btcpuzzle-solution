@@ -35,50 +35,70 @@ def extract_address(data: dict) -> str:
             
     return 'N/A'
 
-def check_line_balance(data: dict) -> Tuple[bool, str]:
-    """
-    Verifica se há algum saldo/balance diferente de 0 no dicionário.
-    Retorna: (possui_saldo, string_do_saldo)
-    """
-    keys_to_check = ['balance', 'saldo', 'totalBalance', 'total_balance']
-    
-    # 1. Verifica chaves no nível raiz
-    for key in keys_to_check:
-        if key in data:
-            val = data[key]
-            try:
-                if isinstance(val, str):
-                    val = val.strip()
-                f_val = float(val)
-                if f_val != 0.0:
-                    return True, str(val)
-            except (ValueError, TypeError):
-                pass
-                
-    # 2. Verifica dentro de 'formats' (formato Bitcoin)
-    formats = data.get('formats')
-    if isinstance(formats, dict):
-        for fmt_name, fmt_data in formats.items():
-            if isinstance(fmt_data, dict):
-                for key in ['balance', 'saldo']:
-                    if key in fmt_data:
-                        val = fmt_data[key]
-                        try:
-                            if isinstance(val, str):
-                                val = val.strip()
-                            f_val = float(val)
-                            if f_val != 0.0:
-                                return True, str(val)
-                        except (ValueError, TypeError):
-                            pass
-                            
-    return False, "0"
+def is_line_with_balance_for_network(line: str, network_name: str) -> bool:
+    if network_name == "bnb":
+        zero_pattern = '"balance":"0","finalBalance":0,"finalBalanceBnb":"0.000000000000000000","nTx":0}'
+        if zero_pattern in line:
+            return False
+        try:
+            data = json.loads(line)
+            if data.get('balance', '0') != '0' or data.get('finalBalance', 0) != 0 or data.get('finalBalanceBnb', '0.000000000000000000') != '0.000000000000000000' or data.get('nTx', 0) != 0:
+                return True
+        except:
+            pass
+    elif network_name == "bitcoin":
+        zero_pattern = '"balance":0,"btc":"0.00000000","txCount":0}}}'
+        if zero_pattern in line:
+            return False
+        try:
+            data = json.loads(line)
+            if data.get('finalBalance', 0) != 0 or data.get('finalBalanceBtc', '0.00000000') != '0.00000000' or data.get('nTx', 0) != 0:
+                return True
+            formats = data.get('formats', {})
+            if isinstance(formats, dict):
+                for fmt_name, fmt_data in formats.items():
+                    if isinstance(fmt_data, dict):
+                        if fmt_data.get('balance', 0) != 0 or fmt_data.get('btc', '0.00000000') != '0.00000000' or fmt_data.get('txCount', 0) != 0:
+                            return True
+        except:
+            pass
+    elif network_name == "ethereum":
+        zero_pattern = '"balance":"0","finalBalance":0,"finalBalanceEth":"0.000000000000000000","nTx":0}'
+        if zero_pattern in line:
+            return False
+        try:
+            data = json.loads(line)
+            if data.get('balance', '0') != '0' or data.get('finalBalance', 0) != 0 or data.get('finalBalanceEth', '0.000000000000000000') != '0.000000000000000000' or data.get('nTx', 0) != 0:
+                return True
+        except:
+            pass
+    elif network_name == "polygon":
+        zero_pattern = '"balance":"0","finalBalance":0,"finalBalanceMatic":"0.000000000000000000","nTx":0}'
+        if zero_pattern in line:
+            return False
+        try:
+            data = json.loads(line)
+            if data.get('balance', '0') != '0' or data.get('finalBalance', 0) != 0 or data.get('finalBalanceMatic', '0.000000000000000000') != '0.000000000000000000' or data.get('nTx', 0) != 0:
+                return True
+        except:
+            pass
+    elif network_name == "solana":
+        zero_pattern = '"balance":"0","finalBalance":0,"finalBalanceSol":"0.000000000","uiAmount":0,"decimals":0,"note":"Account not initialized (zero balance)","nTx":0}'
+        if zero_pattern in line:
+            return False
+        try:
+            data = json.loads(line)
+            if data.get('balance', '0') != '0' or data.get('finalBalance', 0) != 0 or data.get('finalBalanceSol', '0.000000000') != '0.000000000' or data.get('uiAmount', 0) != 0 or data.get('nTx', 0) != 0 or data.get('note', 'Account not initialized (zero balance)') != 'Account not initialized (zero balance)':
+                return True
+        except:
+            pass
+    return False
 
-def check_network(network_name: str, script_dir: Path) -> Tuple[int, List[Dict]]:
+def check_network(network_name: str, script_dir: Path) -> Tuple[int, List[str]]:
     """
     Verifica endereços com saldo para uma rede específica buscando em todos os arquivos
     addresses_checked.jsonl e batch_history.jsonl.
-    Retorna: (total_encontrado, lista_de_resultados)
+    Retorna: (total_encontrado, lista_de_resultados_linhas_cruas)
     """
     
     # Configuração por rede
@@ -122,31 +142,13 @@ def check_network(network_name: str, script_dir: Path) -> Tuple[int, List[Dict]]
                             continue
                         
                         try:
-                            data = json.loads(line)
-                            
-                            # Verifica se tem saldo diferente de 0
-                            has_bal, balance_str = check_line_balance(data)
-                            
-                            if has_bal:
-                                address = extract_address(data)
-                                
-                                result = {
-                                    'network': network_name,
-                                    'puzzle': puzzle_name,
-                                    'arquivo': str(jsonl_file.relative_to(script_dir)),
-                                    'linha': line_num,
-                                    'endereco': address,
-                                    'saldo': balance_str,
-                                }
-                                # Preserva todos os detalhes da linha original no JSON
-                                for k, v in data.items():
-                                    if k not in result:
-                                        result[k] = v
-                                # Salva também a linha original crua como detalhe extra
-                                result['linha_crua'] = line.strip()
-                                
-                                results.append(result)
+                            if is_line_with_balance_for_network(line, network_name):
+                                data = json.loads(line)
+                                results.append(line.strip())
                                 total_found += 1
+                                
+                                address = extract_address(data)
+                                balance_str = data.get('balance') or data.get('totalBalance') or data.get('finalBalance') or '0'
                                 
                                 # Exibe resumo no terminal
                                 print(f"\n  ✓ {puzzle_name} ({data_file_name}) - Linha {line_num}")
@@ -165,7 +167,7 @@ def check_network(network_name: str, script_dir: Path) -> Tuple[int, List[Dict]]
     if results:
         with open(output_file, 'w', encoding='utf-8') as f:
             for result in results:
-                f.write(json.dumps(result, ensure_ascii=False) + '\n')
+                f.write(result + '\n')
         
         print(f"\n  ✅ Total: {total_found} endereços encontrados")
         print(f"  📄 Salvo em: {output_file.name}")
