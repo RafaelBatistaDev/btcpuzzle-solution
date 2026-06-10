@@ -63,11 +63,10 @@ class SolanaBalanceChecker {
    */
   async checkBalances(addresses) {
     const results = [];
-    const batchSize = 5;
     const rpcUrl = RUNTIME_CONFIG.RPC_ENDPOINT;
 
     this.log(`📡 Usando RPC: ${rpcUrl}`);
-    this.log(`📋 Usando Ankr Token API (Ankr Token API)`);
+    this.log(`📋 Método: getBalance (saldo nativo SOL)`);
 
     for (let i = 0; i < addresses.length; i++) {
       const addr = addresses[i];
@@ -76,13 +75,8 @@ class SolanaBalanceChecker {
       try {
         const payload = {
           jsonrpc: '2.0',
-          method: 'ankr_getAccountBalance',
-          params: {
-            blockchain: ['solana'],
-            walletAddress: addr,
-            onlyWhitelisted: true,
-            nativeFirst: true
-          },
+          method: 'getBalance',
+          params: [addr],
           id: 1
         };
 
@@ -96,32 +90,23 @@ class SolanaBalanceChecker {
           timeout: RUNTIME_CONFIG.TIMEOUT_MS,
         });
 
-        if (resp.data.result && resp.data.result.assets) {
-          const assets = resp.data.result.assets;
-          const solBalance = assets.find(a => a.tokenSymbol === 'SOL');
-          
-          if (solBalance) {
-            const balanceLamports = BigInt(solBalance.balanceRawInteger || '0');
-            const balanceSol = Number(balanceLamports) / 1e9;
+        if (resp.data.result && resp.data.result.value !== undefined) {
+          const balanceLamports = BigInt(resp.data.result.value || 0);
+          const balanceSol = Number(balanceLamports) / 1e9;
 
-            results.push({
-              address: addr,
-              balanceLamports: solBalance.balanceRawInteger,
-              balanceSol: balanceSol.toFixed(9),
-              timestamp: new Date().toISOString(),
-            });
+          results.push({
+            address: addr,
+            balanceLamports: balanceLamports.toString(),
+            balanceSol: balanceSol.toFixed(9),
+            timestamp: new Date().toISOString(),
+          });
 
-            if (balanceLamports > 0n) {
-              const alert = '\x07'.repeat(5);
-              this.log(`${alert}\n${'='.repeat(80)}\n🚨 SOLANA SALDO ENCONTRADO! 🚨\nEndereço: ${addr}\nSaldo: ${balanceSol.toFixed(9)} SOL\n${'='.repeat(80)}\n`);
-            }
+          if (balanceLamports > 0n) {
+            const alert = '\x07'.repeat(5);
+            this.log(`${alert}\n${'='.repeat(80)}\n🚨 SOLANA SALDO ENCONTRADO! 🚨\nEndereço: ${addr}\nSaldo: ${balanceSol.toFixed(9)} SOL\n${'='.repeat(80)}\n`);
           }
         } else if (resp.data.error) {
-          if (resp.data.error.code === -32090) {
-            this.log(`⚠️  [RATE LIMIT] Erro Ankr para ${addr}: [${resp.data.error.code}] ${resp.data.error.message}`);
-          } else {
-            this.log(`⚠️  Erro Ankr para ${addr}: [${resp.data.error.code}] ${resp.data.error.message}`);
-          }
+          this.log(`⚠️  Erro RPC para ${addr}: [${resp.data.error.code}] ${resp.data.error.message}`);
         }
       } catch (err) {
         if (err.response?.status === 429 || err.message?.includes('rate')) {
@@ -134,8 +119,6 @@ class SolanaBalanceChecker {
 
       if (i < addresses.length - 1) {
         await new Promise(r => setTimeout(r, RUNTIME_CONFIG.BATCH_DELAY_MS));
-      }
-    }
       }
     }
 

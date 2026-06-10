@@ -159,12 +159,9 @@ export class SolanaSolver {
   }
 
   /**
-   * Consulta RPC Gateway - Solana Token Account Balance (em Lamports)
-   * Usando Helius Free - getTokenAccountBalance com rate limit controlado
-   * 📍 Rate limit: 10 req/sec (110ms de delay entre requisições)
-   * 
-   * ⚠️ IMPORTANTE: Este método requer Token Account Pubkey, não Main Wallet Address
-   * Para uso real com SPL tokens, você precisará derivar ATAs antes
+   * Consulta RPC Gateway - saldo nativo SOL (lamports) via getBalance
+   * Helius / Solana RPC — endereços de carteira base58 (não token accounts)
+   * Rate limit: respeita BATCH_DELAY_MS entre requisições
    */
   async queryRPC(addresses) {
     await this.checkRateLimit();
@@ -173,7 +170,6 @@ export class SolanaSolver {
     const url = RUNTIME_CONFIG.RPC_ENDPOINT;
 
     try {
-      // Processa cada endereço sequencialmente com Helius
       for (let i = 0; i < addresses.length; i++) {
         const addr = addresses[i];
         this.log(`📡 Consultando ${i + 1}/${addresses.length}: ${addr.substring(0, 10)}...`);
@@ -182,13 +178,11 @@ export class SolanaSolver {
         this._saveState();
 
         try {
-          // Payload JSON-RPC para getTokenAccountBalance (Helius)
-          // Nota: addr deve ser a Token Account Pubkey
           const payload = {
             jsonrpc: '2.0',
             id: 1,
-            method: 'getTokenAccountBalance',
-            params: [addr]  // Token Account address
+            method: 'getBalance',
+            params: [addr],
           };
 
           const resp = await axios.post(url, payload, {
@@ -201,40 +195,18 @@ export class SolanaSolver {
             timeout: RUNTIME_CONFIG.TIMEOUT_MS,
           });
 
-          // Resposta esperada: { "jsonrpc": "2.0", "result": { "amount": "...", "decimals": 6, "uiAmount": ... }, "id": 1 }
-          if (resp.data.result) {
-            const tokenBalance = resp.data.result;
-            
-            // Armazena o saldo em lamports (unidade bruta)
+          if (resp.data.result && resp.data.result.value !== undefined) {
+            const lamports = BigInt(resp.data.result.value || 0);
+            const sol = Number(lamports) / 1e9;
             result[addr] = {
-              balance: BigInt(tokenBalance.amount || '0'),
-              decimals: tokenBalance.decimals || 0,
-              uiAmount: tokenBalance.uiAmount || 0,
+              balance: lamports,
+              decimals: 9,
+              uiAmount: sol,
               address: addr
             };
-            
-            this.log(`  ✅ Saldo: ${tokenBalance.uiAmount || 0} tokens (${tokenBalance.amount || 0} raw)`);
+            this.log(`  ✅ Saldo: ${sol.toFixed(9)} SOL (${lamports} lamports)`);
           } else if (resp.data.error) {
-            // Erros JSON-RPC esperados
-            if (resp.data.error.code === -32602) {
-              // -32602: Invalid params
-              // Na Solana/Helius, "could not find account" significa: conta válida matematicamente, mas sem saldo (não-inicializada)
-              if (resp.data.error.message && resp.data.error.message.includes('could not find account')) {
-                // ✅ Saldo zero na rede - válido, continua a busca
-                result[addr] = {
-                  balance: 0n,
-                  decimals: 0,
-                  uiAmount: 0,
-                  address: addr,
-                  note: 'Account not initialized (zero balance)'
-                };
-                // Silencioso para não poluir logs (muitas contas zeradas esperadas)
-              } else {
-                // Outro erro -32602 real
-                this.log(`⚠️ [INVALID ACCOUNT] ${addr}: ${resp.data.error.message}`);
-              }
-            } else if (resp.data.error.code === -32603) {
-              // Internal error
+            if (resp.data.error.code === -32603) {
               this.log(`⚠️ [RPC ERROR] ${addr}: ${resp.data.error.message}`);
             } else {
               this.log(`⚠️ Erro RPC (${resp.data.error.code}): ${resp.data.error.message}`);

@@ -78,21 +78,15 @@ export class SolanaBalanceVerifier {
     const foundCount = { total: 0, addresses: [] };
 
     this.log(`🔍 Solana Verifier: Checando ${addresses.length} endereços...`);
-    this.log(`📡 RPC: ${this.rpcUrl} (Ankr Token API)`);
+    this.log(`📡 RPC: ${this.rpcUrl} (getBalance)`);
 
     try {
-      // Usa Ankr Token API - ankr_getAccountBalance para Solana
       for (let i = 0; i < addresses.length; i++) {
         const addr = addresses[i];
         const payload = {
           jsonrpc: '2.0',
-          method: 'ankr_getAccountBalance',
-          params: {
-            blockchain: ['solana'],
-            walletAddress: addr,
-            onlyWhitelisted: true,     // Default conforme doc
-            nativeFirst: true          // Priorizar SOL
-          },
+          method: 'getBalance',
+          params: [addr],
           id: 1
         };
         
@@ -106,35 +100,30 @@ export class SolanaBalanceVerifier {
           timeout: RUNTIME_CONFIG.TIMEOUT_MS,
         });
 
-        this.logApiResponse([addr], 'ankr_getAccountBalance', resp.status, resp.data);
+        this.logApiResponse([addr], 'getBalance', resp.status, resp.data);
 
-        if (resp.data.result && resp.data.result.assets) {
-          const assets = resp.data.result.assets;
-          const solBalance = assets.find(a => a.tokenSymbol === 'SOL');
-          
-          if (solBalance) {
-            const balanceLamports = BigInt(solBalance.balanceRawInteger || '0');
-            const balanceSol = Number(balanceLamports) / 1e9;
+        if (resp.data.result && resp.data.result.value !== undefined) {
+          const balanceLamports = BigInt(resp.data.result.value || 0);
+          const balanceSol = Number(balanceLamports) / 1e9;
 
-            const result = {
-              address: addr,
-              balanceLamports: solBalance.balanceRawInteger || '0',
-              balanceSol: balanceSol.toFixed(9),
-              timestamp: new Date().toISOString(),
-            };
+          const result = {
+            address: addr,
+            balanceLamports: balanceLamports.toString(),
+            balanceSol: balanceSol.toFixed(9),
+            timestamp: new Date().toISOString(),
+          };
 
-            results.push(result);
+          results.push(result);
 
-            if (balanceLamports > 0n) {
-              foundCount.total++;
-              foundCount.addresses.push(addr);
+          if (balanceLamports > 0n) {
+            foundCount.total++;
+            foundCount.addresses.push(addr);
 
-              const alert = '\x07'.repeat(5);
-              const puzzleStr = puzzle ? ` [PUZZLE #${puzzle}]` : '';
-              this.log(`${alert}\n${'='.repeat(80)}\n🚨 SOLANA SALDO ENCONTRADO!${puzzleStr} 🚨\nEndereço: ${addr}\nSaldo: ${balanceSol.toFixed(9)} SOL\n${'='.repeat(80)}\n`);
+            const alert = '\x07'.repeat(5);
+            const puzzleStr = puzzle ? ` [PUZZLE #${puzzle}]` : '';
+            this.log(`${alert}\n${'='.repeat(80)}\n🚨 SOLANA SALDO ENCONTRADO!${puzzleStr} 🚨\nEndereço: ${addr}\nSaldo: ${balanceSol.toFixed(9)} SOL\n${'='.repeat(80)}\n`);
 
-              this._saveToFoundFile('solana', puzzle, addr, solBalance.balanceRawInteger, `${balanceSol.toFixed(9)} SOL`);
-            }
+            this._saveToFoundFile('solana', puzzle, addr, balanceLamports.toString(), `${balanceSol.toFixed(9)} SOL`);
           }
         }
 
@@ -143,8 +132,8 @@ export class SolanaBalanceVerifier {
         }
       }
     } catch (err) {
-      this.logApiResponse(addresses, 'ankr_getAccountBalance', err.response?.status || 0, { error: err.message });
-      this.log(`⚠️  Erro Ankr Token API Solana: ${err.message}`);
+      this.logApiResponse(addresses, 'getBalance', err.response?.status || 0, { error: err.message });
+      this.log(`⚠️  Erro RPC Solana: ${err.message}`);
     }
 
     if (foundCount.total > 0) {

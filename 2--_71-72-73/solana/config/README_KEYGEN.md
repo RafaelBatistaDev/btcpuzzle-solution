@@ -184,7 +184,7 @@ node solana/config/generate_keys.js --random 10
 # Se seu puzzle foi interrompido, recomece sequencialmente
 node solana/config/generate_keys.js --sequential 72 100
 
-# Depois: node puzzle_solver_solana.js
+# Depois: node solana/puzzle_solver_solana.js
 # O solver continuará de onde o gerador parou
 ```
 

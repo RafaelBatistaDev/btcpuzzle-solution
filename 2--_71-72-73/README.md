@@ -18,13 +18,15 @@ A imagem abaixo ilustra o fluxo de processamento de chaves, derivação de ender
 ```mermaid
 graph TD
     ENV[.env Configuration] -->|config.js| SOLVERS{Multi-Chain Solvers}
-    SOLVERS -->|puzzle_solver.js| BTC[Bitcoin Solver]
-    SOLVERS -->|puzzle_solver_ethereum.js| ETH[Ethereum Solver]
-    SOLVERS -->|puzzle_solver_solana.js| SOL[Solana Solver]
-    SOLVERS -->|puzzle_solver_polygon.js| POLY[Polygon Solver]
-    SOLVERS -->|puzzle_solver_bnb.js| BNB[BNB Solver]
+    SOLVERS -->|bitcoin_P2PKH/puzzle_solver_bitcoin_p2pkh.js| BTC[Bitcoin P2PKH Solver]
+    SOLVERS -->|bitcoin_P2WPKH/puzzle_solver_bitcoin_p2wpkh.js| BTCW[Bitcoin P2WPKH Solver]
+    SOLVERS -->|ethereum/puzzle_solver_ethereum.js| ETH[Ethereum Solver]
+    SOLVERS -->|solana/puzzle_solver_solana.js| SOL[Solana Solver]
+    SOLVERS -->|polygon/puzzle_solver_polygon.js| POLY[Polygon Solver]
+    SOLVERS -->|bnb/puzzle_solver_bnb.js| BNB[BNB Solver]
     
-    BTC -->|CryptoEngine / BIP44, 49, 84, 86| BTCP[Secp256k1 Keys]
+    BTC -->|CryptoEngine / BIP44 P2PKH| BTCP[Secp256k1 Keys]
+    BTCW -->|CryptoEngine / BIP84 P2WPKH| BTCP
     ETH -->|CryptoEngine / EIP-55 Checksum| ETHP[Secp256k1 Keys]
     SOL -->|tweetnacl / ed25519 Base58| SOLP[Ed25519 Keys]
     POLY -->|CryptoEngine / EVM Checksum| POLYP[Secp256k1 Keys]
@@ -175,28 +177,46 @@ cat relatorio_final/saldos_encontrados.jsonl
 
 ```
 /var/home/recifecrypto/2--71-72-73/
-├── puzzle_solver.js                    # Resolvedor modular (Bitcoin)
-├── puzzle_solver_ethereum.js           # Resolvedor modular (Ethereum)
-├── puzzle_solver_solana.js             # Resolvedor modular (Solana)
-├── puzzle_solver_polygon.js            # Resolvedor modular (Polygon)
-├── puzzle_solver_bnb.js                # Resolvedor modular (BNB Chain)
+├── config.js                           # Configuração central (.env)
+├── run_all_networks_all_puzzles.sh     # Inicializador mestre (todas redes + puzzles)
+├── run_all_networks_puzzle*.sh         # Inicializador por puzzle (71, 72 ou 73)
 ├── check_balance.sh                    # Validador rápido de saldos BTC/ETH
-├── setup_toolbox.sh                    # Script de bootstrap e dependências
-│
-├── run_all_puzzles_*.sh                # Inicializadores paralelos por blockchain
-├── run_all_networks_all_puzzles.sh     # Inicializador mestre para todas as redes e puzzles
-├── run_all_networks_puzzle*.sh         # Inicializadores paralelos para puzzles específicos (71-73)
-│
+├── setup_toolbox.sh                    # Bootstrap e dependências
 ├── check_*.py                          # Extratores de saldos por rede
-├── check_all_networks.py               # Extrator mestre consolidado de saldos (Python)
+├── check_all_networks.py               # Extrator mestre consolidado
 │
-├── bitcoin/                            # Módulo Bitcoin (Config, utils, logs e caches)
-├── ethereum/                           # Módulo Ethereum (Config, utils, logs e caches)
-├── solana/                             # Módulo Solana (Config, utils, logs e caches)
-├── polygon/                            # Módulo Polygon (Config, utils, logs e caches)
-├── bnb/                                # Módulo BNB Chain (Config, utils, logs e caches)
+├── bitcoin_P2PKH/
+│   ├── puzzle_solver_bitcoin_p2pkh.js  # Entry point Bitcoin P2PKH
+│   ├── config/                         # Solver, utils, balance_verifier
+│   ├── cache/                          # Estado puzzle_71/72/73.json
+│   └── logs/
+├── bitcoin_P2WPKH/
+│   ├── puzzle_solver_bitcoin_p2wpkh.js # Entry point Bitcoin P2WPKH (SegWit)
+│   ├── config/
+│   ├── cache/
+│   └── logs/
+├── ethereum/
+│   ├── puzzle_solver_ethereum.js
+│   ├── config/
+│   ├── cache/
+│   └── logs/
+├── solana/
+│   ├── puzzle_solver_solana.js
+│   ├── config/
+│   ├── cache/
+│   └── logs/
+├── polygon/
+│   ├── puzzle_solver_polygon.js
+│   ├── config/
+│   ├── cache/
+│   └── logs/
+├── bnb/
+│   ├── puzzle_solver_bnb.js
+│   ├── config/
+│   ├── cache/
+│   └── logs/
 │
-└── relatorio_final/                    # Armazenamento de resultados consolidados e achados
+└── relatorio_final/                    # Resultados consolidados e achados
     ├── saldos_encontrados.jsonl        # Chaves privadas que possuem saldo ativo
     └── all_networks_consolidated.jsonl # Relatório consolidado gerado pelo checker
 ```

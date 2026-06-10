@@ -3,7 +3,7 @@
 
 **Opção B: Executar um puzzle específico em todas as redes**
 
-./run_all_puzzles_bitcoin.sh
+
     ```bash
     ./run_all_networks_puzzle71.sh
     ```
@@ -12,6 +12,9 @@
     ```
     ```bash
     ./run_all_networks_puzzle73.sh
+    ```
+    ```bash
+    ./run_all_puzzles_bitcoin.sh
     ```
     
 ```bash

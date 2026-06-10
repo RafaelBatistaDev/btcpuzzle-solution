@@ -7,6 +7,46 @@
 
 # NÃO parar em erro - continuar com os outros
 set +e
+# Job control — cada ( ... ) & ganha process group próprio (necessário para Ctrl+C)
+set -m
+
+declare -a pids=()
+
+kill_process_tree() {
+  local sig=$1
+  local pid=$2
+  local child
+
+  [ -z "$pid" ] && return 0
+  for child in $(pgrep -P "$pid" 2>/dev/null); do
+    kill_process_tree "$sig" "$child"
+  done
+  kill -"$sig" -- -"$pid" 2>/dev/null || kill -"$sig" "$pid" 2>/dev/null || true
+}
+
+cleanup() {
+  echo -e "\n${YELLOW}⚠️  Interrupção detectada! Terminando todos os processos...${NC}"
+  trap - SIGINT SIGTERM
+
+  for pid in "${pids[@]}"; do
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      kill_process_tree TERM "$pid"
+    fi
+  done
+
+  pkill -TERM -P $$ 2>/dev/null || true
+  sleep 2
+
+  for pid in "${pids[@]}"; do
+    kill_process_tree KILL "$pid"
+  done
+  pkill -KILL -P $$ 2>/dev/null || true
+
+  wait 2>/dev/null || true
+  echo -e "${GREEN}✅ Processos finalizados.${NC}"
+  exit 130
+}
+trap cleanup SIGINT SIGTERM
 
 # Cores para output
 RED='\033[0;31m'
@@ -174,14 +214,15 @@ if [ $TOTAL_REDES_OK -eq 0 ]; then
   exit 1
 fi
 
-echo -e "${GREEN}✅ $TOTAL_REDES_OK de 5 redes disponíveis - iniciando processo${NC}"
+echo -e "${GREEN}✅ $TOTAL_REDES_OK de 5 redes disponíveis (Bitcoin alternará P2PKH ↔ P2WPKH por lote) - iniciando processo${NC}"
 echo ""
 
 # ============ BITCOIN ============
 if [ $BTC_OK -eq 1 ]; then
-  echo "▶️  [1/5] Bitcoin P71..."
-  (run_puzzle_safe "BITCOIN" 71 "puzzle_solver.js") &
+  echo "▶️  [1/5] Bitcoin P71 (Alternado: P2PKH ↔ P2WPKH)..."
+  (run_puzzle_safe "BITCOIN" 71 "bitcoin_alternating_coordinator.js") &
   BTC_P71=$!
+  pids+=($BTC_P71)
 else
   echo -e "${YELLOW}⏭️  Bitcoin pulado (API indisponível)${NC}"
   BTC_P71=""
@@ -191,8 +232,9 @@ fi
 if [ $ETH_OK -eq 1 ]; then
   echo "▶️  [2/5] Ethereum P71..."
   sleep 3
-  (run_puzzle_safe "ETHEREUM" 71 "puzzle_solver_ethereum.js") &
+  (run_puzzle_safe "ETHEREUM" 71 "ethereum/puzzle_solver_ethereum.js") &
   ETH_P71=$!
+  pids+=($ETH_P71)
 else
   echo -e "${YELLOW}⏭️  Ethereum pulado (API indisponível)${NC}"
   ETH_P71=""
@@ -202,8 +244,9 @@ fi
 if [ $SOL_OK -eq 1 ]; then
   echo "▶️  [3/5] Solana P71..."
   sleep 3
-  (run_puzzle_safe "SOLANA" 71 "puzzle_solver_solana.js") &
+  (run_puzzle_safe "SOLANA" 71 "solana/puzzle_solver_solana.js") &
   SOL_P71=$!
+  pids+=($SOL_P71)
 else
   echo -e "${YELLOW}⏭️  Solana pulado (API indisponível)${NC}"
   SOL_P71=""
@@ -213,8 +256,9 @@ fi
 if [ $POLY_OK -eq 1 ]; then
   echo "▶️  [4/5] Polygon P71..."
   sleep 3
-  (run_puzzle_safe "POLYGON" 71 "puzzle_solver_polygon.js") &
+  (run_puzzle_safe "POLYGON" 71 "polygon/puzzle_solver_polygon.js") &
   POLY_P71=$!
+  pids+=($POLY_P71)
 else
   echo -e "${YELLOW}⏭️  Polygon pulado (API indisponível)${NC}"
   POLY_P71=""
@@ -224,8 +268,9 @@ fi
 if [ $BNB_OK -eq 1 ]; then
   echo "▶️  [5/5] BNB P71..."
   sleep 3
-  (run_puzzle_safe "BNB" 71 "puzzle_solver_bnb.js") &
+  (run_puzzle_safe "BNB" 71 "bnb/puzzle_solver_bnb.js") &
   BNB_P71=$!
+  pids+=($BNB_P71)
 else
   echo -e "${YELLOW}⏭️  BNB pulado (API indisponível)${NC}"
   BNB_P71=""
@@ -236,24 +281,19 @@ echo "📊 Aguardando conclusão de todos os processos..."
 echo ""
 
 # Aguardar todos os processos (se estiverem rodando)
-declare -a pids
-[ -n "$BTC_P71" ] && pids+=($BTC_P71)
-[ -n "$ETH_P71" ] && pids+=($ETH_P71)
-[ -n "$SOL_P71" ] && pids+=($SOL_P71)
-[ -n "$POLY_P71" ] && pids+=($POLY_P71)
-[ -n "$BNB_P71" ] && pids+=($BNB_P71)
-
 # Aguardar todos (sem falhar se algum processo tiver problema)
 for pid in "${pids[@]}"; do
   wait $pid 2>/dev/null || true
 done
 
+trap - SIGINT SIGTERM
+
 echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║  ✅ MASTER CONCLUÍDO - Todos os puzzles foram executados    ║"
-echo "║  Redes OK: Bitcoin=$BTC_OK, Ethereum=$ETH_OK, Polygon=$POLY_OK, BNB=$BNB_OK, Solana=$SOL_OK ║"
+echo "║  Redes OK: BTC_P2PKH=$BTC_OK, BTC_P2WPKH=$BTC_OK, Ethereum=$ETH_OK, Polygon=$POLY_OK, BNB=$BNB_OK, Solana=$SOL_OK ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 
 # Cleanup de logs temporários
-rm -f /tmp/{BITCOIN,ETHEREUM,SOLANA,POLYGON,BNB}_p*.log 2>/dev/null || true
+rm -f /tmp/{BITCOIN,BITCOIN_P2PKH,BITCOIN_P2WPKH,ETHEREUM,SOLANA,POLYGON,BNB}_p*.log 2>/dev/null || true

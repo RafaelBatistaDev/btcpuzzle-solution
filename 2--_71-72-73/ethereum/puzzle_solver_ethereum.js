@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 
 // ✅ Carregar e validar todas as configurações do .env (centralizado)
-import config from './config.js';
+import config from '../config.js';
 
 /**
- * PROJETO: POLYGON PUZZLE - Solver Simplificado
+ * PROJETO: ETH PUZZLE - Solver Simplificado
  * PERFORMANCE: Alta
  * AMBIENTE: Node.js v18+ (ESM nativo)
- * 
+ *
  * Funcionalidades:
- * - Importa solver modular de polygon/config/solver.js
+ * - Importa solver modular de ethereum/config/solver.js
  * - Suporta múltiplos puzzles (71, 72, 73)
- * - Gera endereços Polygon sequencialmente (ou aleatório via SEARCH_MODE)
- * - Segue CryptoEngine.privkeyToAddress() de polygon/config/utils.js
- * - Consulta saldo via Polygon RPC
+ * - Gera endereços ETH sequencialmente (ou aleatório via SEARCH_MODE)
+ * - Segue CryptoEngine.privkeyToAddress() de ethereum/config/utils.js
+ * - Consulta saldo via Ankr RPC
  * - Trata rate limiting automático
  * - Salva achados em relatorio_final/saldos_encontrados.jsonl
  */
 
-import { PolygonSolver } from './polygon/config/solver.js';
-import { RUNTIME_CONFIG } from './polygon/config/config.js';
+import { EthereumSolver } from './config/solver.js';
+import { RUNTIME_CONFIG } from './config/config.js';
 
 console.log('\n╔════════════════════════════════════════════════════════════╗');
-console.log('║  🚀 POLYGON PUZZLE SOLVER - Iniciando                      ║');
+console.log('║  🚀 ETHEREUM PUZZLE SOLVER - Iniciando                     ║');
 console.log('╚════════════════════════════════════════════════════════════╝\n');
 
 const puzzleId = Number(config.PUZZLE_ID || RUNTIME_CONFIG.PUZZLE_ID);
@@ -35,12 +35,12 @@ if (![71, 72, 73].includes(puzzleId)) {
 }
 
 console.log(`📋 Configuração:`);
-console.log(`  ├─ Puzzle: POLYGON_PUZZLE_${puzzleId}`);
+console.log(`  ├─ Puzzle: ETH_PUZZLE_${puzzleId}`);
 console.log(`  ├─ Modo: ${searchMode}`);
 console.log(`  ├─ Batch Size: ${RUNTIME_CONFIG.BATCH_SIZE}`);
 console.log(`  └─ Delay: ${RUNTIME_CONFIG.DELAY_MS}ms\n`);
 
-const solver = new PolygonSolver(puzzleId);
+const solver = new EthereumSolver(puzzleId);
 
 // Graceful shutdown
 process.on('SIGINT', () => {
@@ -56,7 +56,7 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
-// Inicia busca sequencial via PolygonSolver
+// Inicia busca sequencial via EthereumSolver
 solver.search().catch(err => {
   console.error('❌ Erro fatal:', err);
   solver._saveState();

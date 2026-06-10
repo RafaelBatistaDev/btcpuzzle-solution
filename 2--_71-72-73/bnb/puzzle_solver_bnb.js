@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
 // ✅ Carregar e validar todas as configurações do .env (centralizado)
-import config from './config.js';
+import config from '../config.js';
 
 /**
  * PROJETO: BNB PUZZLE - Solver Simplificado
  * PERFORMANCE: Alta
  * AMBIENTE: Node.js v18+ (ESM nativo)
- * 
+ *
  * Funcionalidades:
  * - Importa solver modular de bnb/config/solver.js
  * - Suporta múltiplos puzzles (71, 72, 73)
@@ -18,8 +18,8 @@ import config from './config.js';
  * - Salva achados em relatorio_final/saldos_encontrados.jsonl
  */
 
-import { BnbSolver } from './bnb/config/solver.js';
-import { RUNTIME_CONFIG } from './bnb/config/config.js';
+import { BnbSolver } from './config/solver.js';
+import { RUNTIME_CONFIG } from './config/config.js';
 
 console.log('\n╔════════════════════════════════════════════════════════════╗');
 console.log('║  🚀 BNB PUZZLE SOLVER - Iniciando                          ║');

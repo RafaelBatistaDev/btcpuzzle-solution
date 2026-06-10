@@ -1,0 +1,114 @@
+#!/usr/bin/env node
+/**
+ * Coordenador Bitcoin — alterna lotes P2PKH ↔ P2WPKH (ex.: 20 + 20).
+ * Substitui a sequência "P2PKH até terminar → P2WPKH" nos scripts .sh.
+ */
+
+import config from './config.js';
+import { BitcoinSolver as P2PKHSolver } from './bitcoin_P2PKH/config/solver.js';
+import { BitcoinSolver as P2WPKHSolver } from './bitcoin_P2WPKH/config/solver.js';
+import { ACTIVE_PUZZLES } from './bitcoin_P2PKH/config/config.js';
+import { RUNTIME_CONFIG } from './bitcoin_P2PKH/config/config.js';
+import { initLimiterDelay } from './bitcoin_rate_limiter.js';
+
+initLimiterDelay(RUNTIME_CONFIG.DELAY_MS);
+
+function resolvePuzzleIds() {
+  const fromEnv = Number(process.env.PUZZLE_ID || config.PUZZLE_ID);
+  if ([71, 72, 73].includes(fromEnv)) return [fromEnv];
+  return ACTIVE_PUZZLES;
+}
+
+async function runAlternatingForPuzzle(puzzleId) {
+  const p2pkh = new P2PKHSolver(puzzleId);
+  const p2wpkh = new P2WPKHSolver(puzzleId);
+
+  p2pkh.log(`[🔄] Modo alternado P2PKH ↔ P2WPKH (batch=${RUNTIME_CONFIG.BATCH_SIZE})`);
+  p2wpkh.log(`[🔄] Modo alternado P2PKH ↔ P2WPKH (batch=${RUNTIME_CONFIG.BATCH_SIZE})`);
+
+  let p2pkhDone = false;
+  let p2wpkhDone = false;
+  let cycle = 0;
+
+  while (!p2pkhDone || !p2wpkhDone) {
+    if (!p2pkhDone) {
+      await p2pkh.fillBatch();
+      if (p2pkh.batch.length === 0) {
+        p2pkhDone = true;
+        p2pkh.log('🏁 P2PKH: range completo');
+        p2pkh._saveState();
+      } else {
+        p2pkh.log(`📦 P2PKH lote ${p2pkh.batch.length} endereço(s)`);
+        await p2pkh.processBatch();
+        p2pkh._saveState();
+      }
+    }
+
+    if (!p2wpkhDone) {
+      await p2wpkh.fillBatch();
+      if (p2wpkh.batch.length === 0) {
+        p2wpkhDone = true;
+        p2wpkh.log('🏁 P2WPKH: range completo');
+        p2wpkh._saveState();
+      } else {
+        p2wpkh.log(`📦 P2WPKH lote ${p2wpkh.batch.length} endereço(s)`);
+        await p2wpkh.processBatch();
+        p2wpkh._saveState();
+      }
+    }
+
+    cycle++;
+    if (cycle % 10 === 0) {
+      const p2pkhPct = p2pkhDone ? 100 : p2pkh.progressPercent();
+      const p2wpkhPct = p2wpkhDone ? 100 : p2wpkh.progressPercent();
+      console.log(
+        `[BTC P${puzzleId}] ciclo ${cycle} | P2PKH ${p2pkhPct}% | P2WPKH ${p2wpkhPct}% | ` +
+        `verificados P2PKH=${p2pkh.state.totalChecked} P2WPKH=${p2wpkh.state.totalChecked}`
+      );
+    }
+  }
+
+  console.log(`✅ Puzzle #${puzzleId}: P2PKH e P2WPKH finalizados`);
+}
+
+const solvers = [];
+
+function saveAll() {
+  solvers.forEach((s) => s._saveState());
+}
+
+process.on('SIGINT', () => {
+  saveAll();
+  console.log('\n✅ Estado Bitcoin salvo. Encerrando.');
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  saveAll();
+  process.exit(0);
+});
+
+const puzzleIds = resolvePuzzleIds();
+
+console.log('\n╔════════════════════════════════════════════════════════════╗');
+console.log('║  🚀 BITCOIN ALTERNADO — P2PKH ↔ P2WPKH por lote           ║');
+console.log(`║  Puzzles: ${puzzleIds.join(', ')}  |  Batch: ${RUNTIME_CONFIG.BATCH_SIZE}           ║`);
+console.log('╚════════════════════════════════════════════════════════════╝\n');
+
+Promise.all(
+  puzzleIds.map(async (id) => {
+    const p2pkh = new P2PKHSolver(id);
+    const p2wpkh = new P2WPKHSolver(id);
+    solvers.push(p2pkh, p2wpkh);
+    await runAlternatingForPuzzle(id);
+  })
+)
+  .then(() => {
+    console.log('🏁 Todos os puzzles Bitcoin (P2PKH + P2WPKH) processados.');
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error('❌ Erro no coordenador Bitcoin:', err);
+    saveAll();
+    process.exit(1);
+  });

@@ -15,7 +15,8 @@ import { RUNTIME_CONFIG as ETH_CONFIG } from './ethereum/config/config.js';
 import { RUNTIME_CONFIG as POLYGON_CONFIG } from './polygon/config/config.js';
 import { RUNTIME_CONFIG as BNB_CONFIG } from './bnb/config/config.js';
 import { RUNTIME_CONFIG as SOLANA_CONFIG } from './solana/config/config.js';
-import { RUNTIME_CONFIG as BTC_CONFIG } from './bitcoin/config/config.js';
+import { RUNTIME_CONFIG as BTC_P2PKH_CONFIG } from './bitcoin_P2PKH/config/config.js';
+import { RUNTIME_CONFIG as BTC_P2WPKH_CONFIG } from './bitcoin_P2WPKH/config/config.js';
 
 console.log('\n🧪 TESTE: Cada Solver Consulta a Rede Correta\n');
 console.log('═'.repeat(70));
@@ -46,10 +47,15 @@ console.log(`   RPC Endpoint: ${SOLANA_CONFIG.RPC_ENDPOINT}`);
 console.log(`   Contém "solana"? ${SOLANA_CONFIG.RPC_ENDPOINT.includes('solana') ? '✅ SIM' : '❌ NÃO'}`);
 console.log(`   Target: ${SOLANA_CONFIG.RPC_ENDPOINT.includes('ankr') ? '🔗 Ankr' : '🔗 Outro'}`);
 
-// Teste 5: Bitcoin
-console.log('\n✅ BITCOIN Solver:');
-console.log(`   API URL: ${BTC_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
-console.log(`   Contém "blockchain"? ${BTC_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('blockchain') ? '✅ SIM' : '❌ NÃO'}`);
+// Teste 5: Bitcoin P2PKH
+console.log('\n✅ BITCOIN P2PKH Solver:');
+console.log(`   API URL: ${BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
+console.log(`   Contém "blockchain" ou "mempool"? ${(BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('blockchain') || BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('mempool')) ? '✅ SIM' : '❌ NÃO'}`);
+
+// Teste 6: Bitcoin P2WPKH
+console.log('\n✅ BITCOIN P2WPKH Solver:');
+console.log(`   API URL: ${BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
+console.log(`   Contém "blockchain" ou "mempool"? ${(BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('blockchain') || BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('mempool')) ? '✅ SIM' : '❌ NÃO'}`);
 
 console.log('\n' + '═'.repeat(70));
 
@@ -74,8 +80,12 @@ const checks = [
     pass: SOLANA_CONFIG.RPC_ENDPOINT.includes('solana') && SOLANA_CONFIG.RPC_ENDPOINT.includes('ankr'),
   },
   {
-    name: 'Bitcoin',
-    pass: BTC_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('blockchain'),
+    name: 'Bitcoin P2PKH',
+    pass: BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('blockchain') || BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('mempool'),
+  },
+  {
+    name: 'Bitcoin P2WPKH',
+    pass: BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('blockchain') || BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('mempool'),
   },
 ];
 

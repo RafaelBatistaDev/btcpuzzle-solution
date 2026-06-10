@@ -1,25 +1,17 @@
 #!/usr/bin/env node
 // ✅ Carregar e validar todas as configurações do .env (centralizado)
-import config from './config.js';
+import config from '../config.js';
 /**
- * PROJETO: BTC PUZZLE - Solver Simplificado
+ * PROJETO: BITCOIN P2WPKH - Solver Simplificado
  * PERFORMANCE: Alta
  * AMBIENTE: Node.js v18+ (ESM nativo)
- * 
- * Funcionalidades:
- * - Importa solver modular de bitcoin/
- * - Suporta múltiplos puzzles (71, 72, 73)
- * - Gera 5 formatos BIP por chave privada
- * - Consulta saldo via Blockbook/Ankr
- * - Trata rate limiting (429) com retry automático
- * - Salva achados em relatorio_final/saldos_encontrados.jsonl
  */
 
-import { BitcoinSolver } from './bitcoin/config/solver.js';
-import { RUNTIME_CONFIG } from './bitcoin/config/config.js';
+import { BitcoinSolver } from './config/solver.js';
+import { RUNTIME_CONFIG } from './config/config.js';
 
 console.log('\n╔════════════════════════════════════════════════════════════╗');
-console.log('║  🚀 BITCOIN PUZZLE SOLVER - Iniciando                      ║');
+console.log('║  🚀 BITCOIN P2WPKH PUZZLE SOLVER - Iniciando               ║');
 console.log('╚════════════════════════════════════════════════════════════╝\n');
 
 const puzzleId = Number(config.PUZZLE_ID || RUNTIME_CONFIG.PUZZLE_ID);

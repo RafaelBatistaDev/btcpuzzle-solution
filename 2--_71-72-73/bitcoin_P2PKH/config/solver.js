@@ -454,6 +454,57 @@ export class BitcoinSolver {
     }
   }
 
+  // ─── fillBatch ────────────────────────────────────────────────────────────
+  // Preenche o batch até BATCH_SIZE. Retorna true quando o range foi esgotado.
+  fillBatch() {
+    while (this.batch.length < RUNTIME_CONFIG.BATCH_SIZE) {
+      const lastPrivkeyBig = BigInt(this.state.lastPrivkey);
+      const privkey        = lastPrivkeyBig + 1n;
+
+      if (privkey > this.rangeMax) {
+        return true;
+      }
+
+      this.state.lastPrivkey = '0x' + privkey.toString(16);
+
+      if (!CryptoEngine.validatePrivkeyRange(privkey, this.rangeMin, this.rangeMax)) continue;
+
+      const addr = CryptoEngine.privkeyToAddress(privkey);
+      const wif  = CryptoEngine.privkeyToWif(privkey);
+
+      if (!CryptoEngine.isValidAddress(addr)) continue;
+
+      this.state.totalChecked++;
+
+      if (addr.toLowerCase() === this.config.target.toLowerCase()) {
+        const privkey_str = privkey.toString(16).padStart(64, '0');
+        this.log(
+          `\x07\x07\x07\n${'='.repeat(80)}\n` +
+          `🏆 CHAVE ENCONTRADA! PUZZLE #${this.puzzleId} RESOLVIDO! 🏆\n` +
+          `${'='.repeat(80)}\n` +
+          `Endereço: ${addr}\nPrivkey (HEX): ${privkey_str}\nWIF: ${wif}\n` +
+          `${'='.repeat(80)}\n`
+        );
+        this._saveFound({ addr, privHex: privkey_str, wif }, 0n);
+        this._saveState();
+        process.exit(0);
+      }
+
+      this.batch.push({
+        addr,
+        privHex: privkey.toString(16).padStart(64, '0'),
+        wif,
+      });
+    }
+    return false;
+  }
+
+  progressPercent() {
+    const last = BigInt(this.state.lastPrivkey);
+    const pct  = ((last - this.rangeMin) * 10000n / (this.rangeMax - this.rangeMin));
+    return Number(pct) / 100;
+  }
+
   // ─── search ───────────────────────────────────────────────────────────────
   // CORREÇÃO PRINCIPAL: loop encerra quando privkey > rangeMax em vez de reiniciar
   async search() {
@@ -468,73 +519,30 @@ export class BitcoinSolver {
     if (currentBigInt === initialBigInt) {
       this.log(`[✅] Iniciando do ZERO do Puzzle #${this.puzzleId}`);
     } else {
-      const pct = ((currentBigInt - this.rangeMin) * 10000n / (this.rangeMax - this.rangeMin));
-      this.log(`[✅] Retomando checkpoint: ${currentBigInt.toString()} (${(Number(pct) / 100).toFixed(2)}%)`);
+      this.log(`[✅] Retomando checkpoint: ${currentBigInt.toString()} (${this.progressPercent().toFixed(2)}%)`);
     }
 
     this.log(`🔍 Iniciando busca sequencial — Puzzle #${this.puzzleId}`);
     let cycleCount = 0;
 
-    // ── Loop principal ──────────────────────────────────────────────────────
-    outer: while (true) {
+    while (true) {
       cycleCount++;
+      const rangeDone = this.fillBatch();
 
-      // Enche o batch
-      while (this.batch.length < RUNTIME_CONFIG.BATCH_SIZE) {
-        const lastPrivkeyBig = BigInt(this.state.lastPrivkey);
-        const privkey        = lastPrivkeyBig + 1n;
-
-        // ✅ CORREÇÃO: para quando esgota o range — não reinicia
-        if (privkey > this.rangeMax) {
-          this.log(`🏁 Range completo em ${this.state.totalChecked.toLocaleString()} chaves verificadas.`);
-          if (this.batch.length > 0) await this.processBatch();
-          this._saveState();
-          break outer;
-        }
-
-        // Avança lastPrivkey mesmo se inválido, para não travar
-        this.state.lastPrivkey = '0x' + privkey.toString(16);
-
-        if (!CryptoEngine.validatePrivkeyRange(privkey, this.rangeMin, this.rangeMax)) continue;
-
-        const addr = CryptoEngine.privkeyToAddress(privkey);
-        const wif  = CryptoEngine.privkeyToWif(privkey);
-
-        if (!CryptoEngine.isValidAddress(addr)) continue;
-
-        this.state.totalChecked++;
-
-        // Alvo encontrado direto (sem precisar da API)
-        if (addr.toLowerCase() === this.config.target.toLowerCase()) {
-          const privkey_str = privkey.toString(16).padStart(64, '0');
-          this.log(
-            `\x07\x07\x07\n${'='.repeat(80)}\n` +
-            `🏆 CHAVE ENCONTRADA! PUZZLE #${this.puzzleId} RESOLVIDO! 🏆\n` +
-            `${'='.repeat(80)}\n` +
-            `Endereço: ${addr}\nPrivkey (HEX): ${privkey_str}\nWIF: ${wif}\n` +
-            `${'='.repeat(80)}\n`
-          );
-          this._saveFound({ addr, privHex: privkey_str, wif }, 0n);
-          this._saveState();
-          process.exit(0);
-        }
-
-        this.batch.push({
-          addr,
-          privHex: privkey.toString(16).padStart(64, '0'),
-          wif,
-        });
+      if (rangeDone) {
+        this.log(`🏁 Range completo em ${this.state.totalChecked.toLocaleString()} chaves verificadas.`);
+        if (this.batch.length > 0) await this.processBatch();
+        this._saveState();
+        break;
       }
 
-      await this.processBatch();
+      if (this.batch.length > 0) await this.processBatch();
 
       if (cycleCount % 10 === 0) {
-        const last = BigInt(this.state.lastPrivkey);
-        const pct  = ((last - this.rangeMin) * 10000n / (this.rangeMax - this.rangeMin));
         this.log(
           `📊 ${cycleCount} lotes | ` +
           `${this.state.totalChecked.toLocaleString()} verificados | ` +
-          `${(Number(pct) / 100).toFixed(2)}% do range`
+          `${this.progressPercent().toFixed(2)}% do range`
         );
         this._saveState();
       }

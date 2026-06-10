@@ -1,32 +1,28 @@
 #!/usr/bin/env node
-
 // ✅ Carregar e validar todas as configurações do .env (centralizado)
-import config from './config.js';
-
+import config from '../config.js';
 /**
- * PROJETO: ETH PUZZLE - Solver Simplificado
+ * PROJETO: BITCOIN P2PKH - Solver Simplificado
  * PERFORMANCE: Alta
  * AMBIENTE: Node.js v18+ (ESM nativo)
- * 
+ *
  * Funcionalidades:
- * - Importa solver modular de ethereum/config/solver.js
+ * - Importa solver modular de bitcoin_P2PKH/config/
  * - Suporta múltiplos puzzles (71, 72, 73)
- * - Gera endereços ETH sequencialmente (ou aleatório via SEARCH_MODE)
- * - Segue CryptoEngine.privkeyToAddress() de ethereum/config/utils.js
- * - Consulta saldo via Ankr RPC
- * - Trata rate limiting automático
+ * - Gera formatos BIP P2PKH por chave privada
+ * - Consulta saldo via Blockbook/Ankr
+ * - Trata rate limiting (429) com retry automático
  * - Salva achados em relatorio_final/saldos_encontrados.jsonl
  */
 
-import { EthereumSolver } from './ethereum/config/solver.js';
-import { RUNTIME_CONFIG } from './ethereum/config/config.js';
+import { BitcoinSolver } from './config/solver.js';
+import { RUNTIME_CONFIG } from './config/config.js';
 
 console.log('\n╔════════════════════════════════════════════════════════════╗');
-console.log('║  🚀 ETHEREUM PUZZLE SOLVER - Iniciando                     ║');
+console.log('║  🚀 BITCOIN P2PKH PUZZLE SOLVER - Iniciando                ║');
 console.log('╚════════════════════════════════════════════════════════════╝\n');
 
 const puzzleId = Number(config.PUZZLE_ID || RUNTIME_CONFIG.PUZZLE_ID);
-const searchMode = RUNTIME_CONFIG.SEARCH_MODE || 'sequential';
 
 if (![71, 72, 73].includes(puzzleId)) {
   console.error('❌ Puzzle inválido! Deve ser 71, 72 ou 73');
@@ -34,13 +30,7 @@ if (![71, 72, 73].includes(puzzleId)) {
   process.exit(1);
 }
 
-console.log(`📋 Configuração:`);
-console.log(`  ├─ Puzzle: ETH_PUZZLE_${puzzleId}`);
-console.log(`  ├─ Modo: ${searchMode}`);
-console.log(`  ├─ Batch Size: ${RUNTIME_CONFIG.BATCH_SIZE}`);
-console.log(`  └─ Delay: ${RUNTIME_CONFIG.DELAY_MS}ms\n`);
-
-const solver = new EthereumSolver(puzzleId);
+const solver = new BitcoinSolver(puzzleId);
 
 // Graceful shutdown
 process.on('SIGINT', () => {
@@ -56,7 +46,7 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
-// Inicia busca sequencial via EthereumSolver
+// Inicia busca
 solver.search().catch(err => {
   console.error('❌ Erro fatal:', err);
   solver._saveState();

@@ -30,7 +30,7 @@ const envConfig = loadEnv();
 export const PUZZLE_CONFIG = {
   71: {
     name: 'BTC_PUZZLE_71',
-    target: envConfig.BTC_TARGET_71 || process.env.BTC_TARGET_71 || '1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU',
+    target: envConfig.BTC_P2PKH_TARGET_71 || process.env.BTC_P2PKH_TARGET_71 || '1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU',
     // 2^70 .. 2^71-1
     rangeMin:      '0x0000000000000000000000000000000000000000000000400000000000000000',
     rangeMax:      '0x00000000000000000000000000000000000000000000007fffffffffffffffff',
@@ -38,7 +38,7 @@ export const PUZZLE_CONFIG = {
   },
   72: {
     name: 'BTC_PUZZLE_72',
-    target: envConfig.BTC_TARGET_72 || process.env.BTC_TARGET_72 || '1JTK7s9YVYywfm5XUH7RNhHJH1LshCaRFR',
+    target: envConfig.BTC_P2PKH_TARGET_72 || process.env.BTC_P2PKH_TARGET_72 || '1JTK7s9YVYywfm5XUH7RNhHJH1LshCaRFR',
     // 2^71 .. 2^72-1
     rangeMin:      '0x0000000000000000000000000000000000000000000000800000000000000000',
     rangeMax:      '0x0000000000000000000000000000000000000000000000ffffffffffffffffff',
@@ -46,7 +46,7 @@ export const PUZZLE_CONFIG = {
   },
   73: {
     name: 'BTC_PUZZLE_73',
-    target: envConfig.BTC_TARGET_73 || process.env.BTC_TARGET_73 || '12VVRNPi4SJqUTsp6FmqDqY5sGosDtysn4',
+    target: envConfig.BTC_P2PKH_TARGET_73 || process.env.BTC_P2PKH_TARGET_73 || '12VVRNPi4SJqUTsp6FmqDqY5sGosDtysn4',
     // 2^72 .. 2^73-1  ← rangeMax corrigido (era 63 hex chars, agora 64)
     rangeMin:      '0x0000000000000000000000000000000000000000000001000000000000000000',
     rangeMax:      '0x0000000000000000000000000000000000000000000001ffffffffffffffffff',
