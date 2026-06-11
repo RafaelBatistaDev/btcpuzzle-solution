@@ -156,6 +156,44 @@ function initializeConfig() {
     const BTC_P2SH_MAX_REQ_24H = isValidInteger(process.env.BTC_P2SH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 'BTC_P2SH_MAX_REQ_24H', 1);
     const BTC_P2SH_TIMEOUT_MS = isValidInteger(process.env.BTC_P2SH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 'BTC_P2SH_TIMEOUT_MS', 1);
 
+    // Validar Litecoin (opcional)
+    if (process.env.LTC_BLOCKCHAIN_INFO_BASE_URL) {
+      isValidUrl(process.env.LTC_BLOCKCHAIN_INFO_BASE_URL, 'LTC_BLOCKCHAIN_INFO_BASE_URL');
+    }
+
+    const LTC_DELAY_MS = isValidInteger(process.env.LTC_DELAY_MS || '460', 'LTC_DELAY_MS', 0);
+
+    const LTC_P2PKH_BATCH_SIZE = isValidInteger(process.env.LTC_P2PKH_BATCH_SIZE || '20', 'LTC_P2PKH_BATCH_SIZE', 1);
+    const LTC_P2PKH_DELAY_MS = isValidInteger(process.env.LTC_P2PKH_DELAY_MS || process.env.LTC_DELAY_MS || '460', 'LTC_P2PKH_DELAY_MS', 0);
+    const LTC_P2PKH_INITIAL_DELAY_MS = isValidInteger(process.env.LTC_P2PKH_INITIAL_DELAY_MS || '0', 'LTC_P2PKH_INITIAL_DELAY_MS', 0);
+    const LTC_P2PKH_MAX_REQ_24H = isValidInteger(process.env.LTC_P2PKH_MAX_REQ_24H || '90000', 'LTC_P2PKH_MAX_REQ_24H', 1);
+    const LTC_P2PKH_TIMEOUT_MS = isValidInteger(process.env.LTC_P2PKH_TIMEOUT_MS || '3000', 'LTC_P2PKH_TIMEOUT_MS', 1);
+
+    const LTC_P2SH_BATCH_SIZE = isValidInteger(process.env.LTC_P2SH_BATCH_SIZE || '20', 'LTC_P2SH_BATCH_SIZE', 1);
+    const LTC_P2SH_DELAY_MS = isValidInteger(process.env.LTC_P2SH_DELAY_MS || process.env.LTC_DELAY_MS || '660', 'LTC_P2SH_DELAY_MS', 0);
+    const LTC_P2SH_INITIAL_DELAY_MS = isValidInteger(process.env.LTC_P2SH_INITIAL_DELAY_MS || '0', 'LTC_P2SH_INITIAL_DELAY_MS', 0);
+    const LTC_P2SH_MAX_REQ_24H = isValidInteger(process.env.LTC_P2SH_MAX_REQ_24H || '90000', 'LTC_P2SH_MAX_REQ_24H', 1);
+    const LTC_P2SH_TIMEOUT_MS = isValidInteger(process.env.LTC_P2SH_TIMEOUT_MS || '3000', 'LTC_P2SH_TIMEOUT_MS', 1);
+
+    // Validar Dogecoin (opcional)
+    if (process.env.DOGE_BLOCKCHAIN_INFO_BASE_URL) {
+      isValidUrl(process.env.DOGE_BLOCKCHAIN_INFO_BASE_URL, 'DOGE_BLOCKCHAIN_INFO_BASE_URL');
+    }
+
+    const DOGE_DELAY_MS = isValidInteger(process.env.DOGE_DELAY_MS || '460', 'DOGE_DELAY_MS', 0);
+
+    const DOGE_P2PKH_BATCH_SIZE = isValidInteger(process.env.DOGE_P2PKH_BATCH_SIZE || '20', 'DOGE_P2PKH_BATCH_SIZE', 1);
+    const DOGE_P2PKH_DELAY_MS = isValidInteger(process.env.DOGE_P2PKH_DELAY_MS || process.env.DOGE_DELAY_MS || '460', 'DOGE_P2PKH_DELAY_MS', 0);
+    const DOGE_P2PKH_INITIAL_DELAY_MS = isValidInteger(process.env.DOGE_P2PKH_INITIAL_DELAY_MS || '0', 'DOGE_P2PKH_INITIAL_DELAY_MS', 0);
+    const DOGE_P2PKH_MAX_REQ_24H = isValidInteger(process.env.DOGE_P2PKH_MAX_REQ_24H || '90000', 'DOGE_P2PKH_MAX_REQ_24H', 1);
+    const DOGE_P2PKH_TIMEOUT_MS = isValidInteger(process.env.DOGE_P2PKH_TIMEOUT_MS || '3000', 'DOGE_P2PKH_TIMEOUT_MS', 1);
+
+    const DOGE_P2SH_BATCH_SIZE = isValidInteger(process.env.DOGE_P2SH_BATCH_SIZE || '20', 'DOGE_P2SH_BATCH_SIZE', 1);
+    const DOGE_P2SH_DELAY_MS = isValidInteger(process.env.DOGE_P2SH_DELAY_MS || process.env.DOGE_DELAY_MS || '660', 'DOGE_P2SH_DELAY_MS', 0);
+    const DOGE_P2SH_INITIAL_DELAY_MS = isValidInteger(process.env.DOGE_P2SH_INITIAL_DELAY_MS || '0', 'DOGE_P2SH_INITIAL_DELAY_MS', 0);
+    const DOGE_P2SH_MAX_REQ_24H = isValidInteger(process.env.DOGE_P2SH_MAX_REQ_24H || '90000', 'DOGE_P2SH_MAX_REQ_24H', 1);
+    const DOGE_P2SH_TIMEOUT_MS = isValidInteger(process.env.DOGE_P2SH_TIMEOUT_MS || '3000', 'DOGE_P2SH_TIMEOUT_MS', 1);
+
     // Validar Ethereum
     isValidApiKey(process.env.ETHERSCAN_KEY, 'ETHERSCAN_KEY');
     isValidAddress(process.env.ETH_TARGET_71, 'ETH_TARGET_71', 'ethereum');
@@ -252,6 +290,54 @@ function initializeConfig() {
       BTC_P2SH_TARGET_71: process.env.BTC_P2SH_TARGET_71,
       BTC_P2SH_TARGET_72: process.env.BTC_P2SH_TARGET_72,
       BTC_P2SH_TARGET_73: process.env.BTC_P2SH_TARGET_73,
+
+      // Litecoin — API compartilhada (P2PKH + P2SH)
+      LTC_BLOCKCHAIN_INFO_BASE_URL: process.env.LTC_BLOCKCHAIN_INFO_BASE_URL,
+      LTC_DELAY_MS,
+
+      // Litecoin P2PKH
+      LTC_P2PKH_BATCH_SIZE,
+      LTC_P2PKH_DELAY_MS,
+      LTC_P2PKH_INITIAL_DELAY_MS,
+      LTC_P2PKH_MAX_REQ_24H,
+      LTC_P2PKH_TIMEOUT_MS,
+      LTC_P2PKH_TARGET_71: process.env.LTC_P2PKH_TARGET_71,
+      LTC_P2PKH_TARGET_72: process.env.LTC_P2PKH_TARGET_72,
+      LTC_P2PKH_TARGET_73: process.env.LTC_P2PKH_TARGET_73,
+
+      // Litecoin P2SH-P2WPKH
+      LTC_P2SH_BATCH_SIZE,
+      LTC_P2SH_DELAY_MS,
+      LTC_P2SH_INITIAL_DELAY_MS,
+      LTC_P2SH_MAX_REQ_24H,
+      LTC_P2SH_TIMEOUT_MS,
+      LTC_P2SH_TARGET_71: process.env.LTC_P2SH_TARGET_71,
+      LTC_P2SH_TARGET_72: process.env.LTC_P2SH_TARGET_72,
+      LTC_P2SH_TARGET_73: process.env.LTC_P2SH_TARGET_73,
+
+      // Dogecoin — API compartilhada (P2PKH + P2SH)
+      DOGE_BLOCKCHAIN_INFO_BASE_URL: process.env.DOGE_BLOCKCHAIN_INFO_BASE_URL,
+      DOGE_DELAY_MS,
+
+      // Dogecoin P2PKH
+      DOGE_P2PKH_BATCH_SIZE,
+      DOGE_P2PKH_DELAY_MS,
+      DOGE_P2PKH_INITIAL_DELAY_MS,
+      DOGE_P2PKH_MAX_REQ_24H,
+      DOGE_P2PKH_TIMEOUT_MS,
+      DOGE_P2PKH_TARGET_71: process.env.DOGE_P2PKH_TARGET_71,
+      DOGE_P2PKH_TARGET_72: process.env.DOGE_P2PKH_TARGET_72,
+      DOGE_P2PKH_TARGET_73: process.env.DOGE_P2PKH_TARGET_73,
+
+      // Dogecoin P2SH-P2WPKH
+      DOGE_P2SH_BATCH_SIZE,
+      DOGE_P2SH_DELAY_MS,
+      DOGE_P2SH_INITIAL_DELAY_MS,
+      DOGE_P2SH_MAX_REQ_24H,
+      DOGE_P2SH_TIMEOUT_MS,
+      DOGE_P2SH_TARGET_71: process.env.DOGE_P2SH_TARGET_71,
+      DOGE_P2SH_TARGET_72: process.env.DOGE_P2SH_TARGET_72,
+      DOGE_P2SH_TARGET_73: process.env.DOGE_P2SH_TARGET_73,
       
       // Ethereum
       RPC_ENDPOINT: 'https://api.etherscan.io/v2/api',

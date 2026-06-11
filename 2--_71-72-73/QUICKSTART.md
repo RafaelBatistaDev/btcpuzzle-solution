@@ -1,146 +1,112 @@
 # 🚀 Guia de Início Rápido (Quick Start)
 
-
-**Opção B: Executar um puzzle específico em todas as redes**
-
-
-    ```bash
-    ./run_all_networks_puzzle71.sh
-    ```
-    ```bash
-    ./run_all_networks_puzzle72.sh
-    ```
-    ```bash
-    ./run_all_networks_puzzle73.sh
-    ```
-    ```bash
-    ./run_all_puzzles_bitcoin.sh
-    ```
-    Puzzle │ Iniciar                        │ Parar                           │
-  ├────────┼────────────────────────────────┼─────────────────────────────────┤
-  │ 71     │ ./run_all_networks_puzzle71.sh │ ./stop_all_networks_puzzle71.sh │
-  │ 72     │ ./run_all_networks_puzzle72.sh │ ./stop_all_networks_puzzle72.sh │
-  │ 73     │ ./run_all_networks_puzzle73.sh │ ./stop_all_networks_puzzle73.sh │
-```bash
-toolbox create puzzle-solver
-```
-```bash
-toolbox enter puzzle-solver
- ```
-
-     ```bash
-     uv run check_all_networks.py
-     ```
-    
-
-Este guia prático ensina a preparar o ambiente, configurar as credenciais, inicializar os solvers em paralelo e auditar os relatórios finais do projeto.
+Este guia ensina a preparar o ambiente, configurar credenciais, iniciar os solvers e auditar resultados.
 
 ---
 
-## 📋 Resumo de Comandos Rápidos
+## 📋 Resumo de Comandos
 
-| Operação | Script/Comando | Objetivo |
+| Operação | Script | Objetivo |
 | :--- | :--- | :--- |
-| **Instalar Dependências** | `./setup_toolbox.sh` | Configura o Node.js, NPM, Python e instala bibliotecas. |
-| **Iniciar Tudo (Mestre)** | `./run_all_networks_all_puzzles.sh` | Roda os 3 puzzles (71, 72, 73) nas 5 redes simultaneamente. |
-| **Bitcoin (P71-P73)** | `./run_all_puzzles_bitcoin.sh` | Inicia solvers dedicados de Bitcoin. |
-| **Ethereum (P71-P73)** | `./run_all_puzzles_ethereum.sh` | Inicia solvers dedicados de Ethereum. |
-| **Solana (P71-P73)** | `./run_all_puzzles_solana.sh` | Inicia solvers dedicados de Solana. |
-| **Polygon (P71-P73)** | `./run_all_puzzles_polygon.sh` | Inicia solvers dedicados de Polygon. |
-| **BNB Chain (P71-P73)** | `./run_all_puzzles_bnb.sh` | Inicia solvers dedicados de BNB Chain. |
-| **Verificar Tudo** | `uv run check_all_networks.py` | Executa o auditor Python mestre para todas as blockchains. |
-| **Verificar Balanço Rápido** | `./check_balance.sh` | Faz checagem consolidada rápida de Bitcoin e Ethereum. |
+| **Instalar dependências** | `./setup_toolbox.sh` | Node.js, NPM, Python e bibliotecas |
+| **Orquestrador Bitcoin** | `./orchestrator_bitcoin.sh` | Puzzles 71→72→73 só em Bitcoin |
+| **Orquestrador LTC+DOGE** | `./orchestrator_ltc_doge.sh` | Puzzles 71→72→73 em Litecoin e Dogecoin |
+| **Orquestrador EVM** | `./orchestrator_evm.sh` | Puzzles 71→72→73 em ETH, Polygon, BNB e Solana |
+| **Puzzle 71 (todas redes)** | `./start_puzzle71_all.sh` | Abre 3 terminais e roda P71 em paralelo |
+| **Puzzle 72 (todas redes)** | `./start_puzzle72_all.sh` | Abre 3 terminais e roda P72 em paralelo |
+| **Puzzle 73 (todas redes)** | `./start_puzzle73_all.sh` | Abre 3 terminais e roda P73 em paralelo |
+| **Verificar tudo** | `uv run check_all_networks.py` | Auditoria consolidada |
+
+### Tabela de Iniciar / Parar
+
+| Modo | Iniciar | Parar |
+| :--- | :--- | :--- |
+| **Bitcoin (P71→P73)** | `./orchestrator_bitcoin.sh` | `./stop_orchestrator_bitcoin.sh` |
+| **Litecoin + Dogecoin (P71→P73)** | `./orchestrator_ltc_doge.sh` | `./stop_orchestrator_ltc_doge.sh` |
+| **EVM + Solana (P71→P73)** | `./orchestrator_evm.sh` | `./stop_orchestrator_evm.sh` |
+| **Puzzle 71 (todas redes)** | `./start_puzzle71_all.sh` | `./stop_puzzle71_all.sh` |
+| **Puzzle 72 (todas redes)** | `./start_puzzle72_all.sh` | `./stop_puzzle72_all.sh` |
+| **Puzzle 73 (todas redes)** | `./start_puzzle73_all.sh` | `./stop_puzzle73_all.sh` |
 
 ---
 
-## 🛠️ Passo 1: Preparando o Ambiente e Dependências
-
-Para evitar conflitos com o sistema host, recomenda-se criar e rodar o projeto através de um contêiner Toolbox (para usuários de sistemas imutáveis/Silverblue) ou instalar diretamente no terminal Unix compatível.
+## 🛠️ Passo 1: Ambiente
 
 ```bash
-# 1. Torne os scripts executáveis
-chmod +x *.sh *.py
-
-# 2. Instale as dependências (Node.js, Python 3.11+, NPM e dependências de pacotes)
+chmod +x *.sh lib/*.sh
 ./setup_toolbox.sh
 ```
 
+Opcional (Toolbox / Fedora Silverblue):
+
+```bash
+toolbox create puzzle-solver
+toolbox enter puzzle-solver
+```
+
 ---
 
-## ⚙️ Passo 2: Configurando Variáveis de Ambiente (`.env`)
-
-Crie o arquivo de configurações na raiz do projeto:
+## ⚙️ Passo 2: Configurar `.env`
 
 ```bash
 cp .env.example .env
 ```
 
-Abra o arquivo `.env` e configure seus endpoints e alvos.
+Variáveis críticas:
 
-> [!WARNING]
-> Certifique-se de preencher a variável `BSCSCAN_KEY` e `ETHERSCAN_KEY` com chaves válidas. A chave `POLYGON_RPC_ENDPOINT` e `SOL_RPC_ENDPOINT` já possuem endpoints RPC ativos de alta velocidade de uso público/premium do dRPC e Helius.
-
-### Variáveis Críticas de Validação
-
-*   `SEARCH_MODE=sequential`: **Obrigatório**. Qualquer outro modo causará erro crítico de inicialização no validador.
-*   `BATCH_SIZE=1`: Tamanho do lote. Recomendado manter valores baixos (`1` a `10`) para evitar rate limits excessivos dos servidores de RPC públicos.
+- `SEARCH_MODE=sequential` — **obrigatório**
+- `BATCH_SIZE=1` — recomendado para evitar rate limits
+- Preencha `ETHERSCAN_KEY`, `BSCSCAN_KEY` e endpoints RPC
 
 ---
 
-## 🏎️ Passo 3: Executando os Solvers
+## 🏎️ Passo 3: Executar
 
-### Executando em Paralelo Completo (Recomendado)
-Para rodar todos os 3 puzzles (71, 72, 73) em todas as 5 redes simultaneamente:
+### Opção A — 3 orquestradores (recomendado para rodar tudo)
 
-```bash
-./run_all_networks_all_puzzles.sh
-```
-*Este comando inicia 15 processos isolados e balanceados. Delays automáticos são injetados na inicialização para evitar sobrecarga imediata nas APIs.*
-
-### Executando Redes Individuais
-Se preferir testar ou concentrar o poder de busca em uma única blockchain:
+Abra **3 terminais** e execute um orquestrador em cada:
 
 ```bash
-./run_all_puzzles_bitcoin.sh     # Executa P71, P72 e P73 de Bitcoin
-./run_all_puzzles_ethereum.sh    # Executa P71, P72 e P73 de Ethereum
-./run_all_puzzles_solana.sh      # Executa P71, P72 e P73 de Solana
-./run_all_puzzles_polygon.sh     # Executa P71, P72 e P73 de Polygon
-./run_all_puzzles_bnb.sh         # Executa P71, P72 e P73 de BNB Chain
+./orchestrator_bitcoin.sh      # terminal 1
+./orchestrator_ltc_doge.sh     # terminal 2
+./orchestrator_evm.sh          # terminal 3
 ```
 
----
+Cada orquestrador inicia os puzzles 71, 72 e 73 do seu grupo com intervalos entre eles para não sobrecarregar RPC/rede.
 
-## ⏸️ Passo 4: Interrompendo a Busca com Segurança
+### Opção B — Um puzzle em todas as redes
 
-Você pode parar os resolvedores a qualquer momento digitando `Ctrl+C` no terminal de execução:
-
-1.  A interrupção de terminal (`SIGINT`) é capturada pelo script de orquestração.
-2.  O sinal é propagado como `SIGTERM` de maneira ordenada para todos os processos filhos (Node.js).
-3.  Cada resolvedor salva seu progresso atual (`lastPrivkey`) no arquivo de checkpoint `/cache/puzzle_*.json` antes de encerrar as threads.
-4.  O progresso do checkpoint suporta formatos hexadecimais (com prefixo `0x`) e decimais, garantindo que ao reiniciar o script, a busca **retomará exatamente de onde parou**, sem resetar o range de busca de chaves privadas.
-
----
-
-## 📊 Passo 5: Analisando e Verificando Resultados
-
-Saldos encontrados são armazenados imediatamente nas pastas específicas de cada puzzle e consolidados no relatório central:
-
-### 1. Auditoria Automática por Script
-Rode a auditoria consolidada para buscar saldos ativos nos caches de busca:
+Abre automaticamente 3 terminais (Bitcoin | LTC+DOGE | EVM+Solana):
 
 ```bash
-# Executa a auditoria geral
+./start_puzzle71_all.sh   # só Puzzle 71
+./start_puzzle72_all.sh   # só Puzzle 72
+./start_puzzle73_all.sh   # só Puzzle 73
+```
+
+---
+
+## ⏸️ Passo 4: Parar com segurança
+
+Use o script `stop_*` correspondente ao que foi iniciado:
+
+```bash
+./stop_orchestrator_bitcoin.sh
+./stop_orchestrator_ltc_doge.sh
+./stop_orchestrator_evm.sh
+
+./stop_puzzle71_all.sh
+./stop_puzzle72_all.sh
+./stop_puzzle73_all.sh
+```
+
+Também é possível usar `Ctrl+C` no terminal do orquestrador — o sinal é propagado aos processos filhos e o checkpoint é salvo em `cache/puzzle_*.json`.
+
+---
+
+## 📊 Passo 5: Verificar resultados
+
+```bash
 uv run check_all_networks.py
-
-# Se preferir auditar redes específicas:
-uv run check_bitcoin.py
-uv run check_ethereum.py
-uv run check_solana.py
-uv run check_polygon.py
-uv run check_bnb.py
+cat relatorio_final/saldos_encontrados.jsonl
 ```
-
-### 2. Leitura dos Arquivos de Relatório
-*   **Resultados Consolidados**: `cat relatorio_final/saldos_encontrados.jsonl`
-*   **Log de Chaves Verificadas**: `cat relatorio_final/all_networks_consolidated.jsonl`
-*   **Sucesso do Solver (Txt)**: Se um puzzle for resolvido, um arquivo chamado `FOUND_<endereço>.txt` será criado na pasta correspondente com os detalhes da chave WIF e chave privada bruta.

@@ -21,6 +21,10 @@ NETWORK_ZERO_FIELDS: Dict[str, Dict] = {
     "bitcoin_P2PKH":  {"finalBalance": 0, "nTx": 0},
     "bitcoin_P2WPKH": {"finalBalance": 0, "nTx": 0},
     "bitcoin_P2SH-P2WPKH": {"finalBalance": 0, "nTx": 0},
+    "litecoin_p2pkh":      {"finalBalance": 0, "nTx": 0},
+    "litecoin_p2sh":       {"finalBalance": 0, "nTx": 0},
+    "dogecoin_p2pkh":      {"finalBalance": 0, "nTx": 0},
+    "dogecoin_p2sh":       {"finalBalance": 0, "nTx": 0},
     "ethereum": {"finalBalance": 0, "nTx": 0},
     "polygon":  {"finalBalance": 0, "nTx": 0},
     "solana":   {"finalBalance": 0, "nTx": 0},
@@ -76,7 +80,11 @@ def is_line_with_balance_for_network(line: str, network_name: str) -> bool:
                 return True
 
         # Bitcoin: verificação adicional nos formatos aninhados
-        if network_name in ["bitcoin_P2PKH", "bitcoin_P2WPKH", "bitcoin_P2SH-P2WPKH"]:
+        if network_name in [
+            "bitcoin_P2PKH", "bitcoin_P2WPKH", "bitcoin_P2SH-P2WPKH",
+            "litecoin_p2pkh", "litecoin_p2sh",
+            "dogecoin_p2pkh", "dogecoin_p2sh",
+        ]:
             for fmt_data in data.get('formats', {}).values():
                 if isinstance(fmt_data, dict):
                     if fmt_data.get('balance', 0) != 0 or fmt_data.get('txCount', 0) != 0:
@@ -181,11 +189,16 @@ def check_network(network_name: str, script_dir: Path) -> Tuple[int, List[str]]:
 def main() -> None:
     print("\n" + "╔" + "="*58 + "╗")
     print("║" + " "*10 + "🚀 MASTER - CHECK ALL NETWORKS" + " "*19 + "║")
-    print("║" + " "*8 + "Bitcoin + Ethereum + Solana + Polygon + BNB" + " "*5 + "║")
+    print("║" + " "*8 + "Bitcoin + Litecoin + Dogecoin + Ethereum + Solana + Polygon + BNB" + " "*2 + "║")
     print("╚" + "="*58 + "╝")
 
     script_dir = Path(__file__).parent.absolute()
-    networks = ["bitcoin_P2PKH", "bitcoin_P2WPKH", "bitcoin_P2SH-P2WPKH", "ethereum", "solana", "polygon", "bnb"]
+    networks = [
+        "bitcoin_P2PKH", "bitcoin_P2WPKH", "bitcoin_P2SH-P2WPKH",
+        "litecoin_p2pkh", "litecoin_p2sh",
+        "dogecoin_p2pkh", "dogecoin_p2sh",
+        "ethereum", "solana", "polygon", "bnb",
+    ]
 
     all_results: Dict[str, Tuple[int, List[str]]] = {}
     grand_total = 0

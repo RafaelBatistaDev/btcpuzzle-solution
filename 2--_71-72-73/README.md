@@ -132,27 +132,37 @@ chmod +x setup_toolbox.sh
 
 ### 2. Executar Solvers de Busca
 
-Você pode rodar as redes e os puzzles de forma modular ou paralela:
+O projeto usa **3 orquestradores centrais** que dividem a carga por tipo de rede:
 
-*   **Opção A: Executar todas as redes e puzzles simultaneamente (Modo Master)**
-    ```bash
-    chmod +x run_all_networks_all_puzzles.sh
-    ./run_all_networks_all_puzzles.sh
-    ```
-*   **Opção B: Executar um puzzle específico em todas as redes**
-    ```bash
-    ./run_all_networks_puzzle71.sh
-    ./run_all_networks_puzzle72.sh
-    ./run_all_networks_puzzle73.sh
-    ```
-*   **Opção C: Executar todos os puzzles de uma única rede**
-    ```bash
-    ./run_all_puzzles_bitcoin.sh
-    ./run_all_puzzles_ethereum.sh
-    ./run_all_puzzles_solana.sh
-    ./run_all_puzzles_polygon.sh
-    ./run_all_puzzles_bnb.sh
-    ```
+| Orquestrador | Redes | Iniciar | Parar |
+| :--- | :--- | :--- | :--- |
+| **#1 Bitcoin** | BTC | `./orchestrator_bitcoin.sh` | `./stop_orchestrator_bitcoin.sh` |
+| **#2 UTXO Alt** | LTC + DOGE | `./orchestrator_ltc_doge.sh` | `./stop_orchestrator_ltc_doge.sh` |
+| **#3 EVM** | ETH, Polygon, BNB, Solana | `./orchestrator_evm.sh` | `./stop_orchestrator_evm.sh` |
+
+**Rodar tudo (recomendado)** — abra 3 terminais, um por orquestrador:
+
+```bash
+./orchestrator_bitcoin.sh      # terminal 1
+./orchestrator_ltc_doge.sh     # terminal 2
+./orchestrator_evm.sh          # terminal 3
+```
+
+**Rodar um puzzle em todas as redes** — abre 3 terminais automaticamente:
+
+```bash
+./start_puzzle71_all.sh
+./start_puzzle72_all.sh
+./start_puzzle73_all.sh
+```
+
+Parar o puzzle correspondente:
+
+```bash
+./stop_puzzle71_all.sh
+./stop_puzzle72_all.sh
+./stop_puzzle73_all.sh
+```
 
 ### 3. Verificar Saldos Encontrados
 
@@ -186,9 +196,14 @@ cat relatorio_final/saldos_encontrados.jsonl
 ```
 /var/home/recifecrypto/2--71-72-73/
 ├── config.js                           # Configuração central (.env)
-├── run_all_networks_all_puzzles.sh     # Inicializador mestre (todas redes + puzzles)
-├── run_all_networks_puzzle*.sh         # Inicializador por puzzle (71, 72 ou 73)
-├── check_balance.sh                    # Validador rápido de saldos BTC/ETH
+├── orchestrator_bitcoin.sh             # Orquestrador #1 — Bitcoin P71→P73
+├── orchestrator_ltc_doge.sh            # Orquestrador #2 — LTC+DOGE P71→P73
+├── orchestrator_evm.sh                 # Orquestrador #3 — EVM+Solana P71→P73
+├── stop_orchestrator_*.sh              # Para cada orquestrador
+├── start_puzzle{71,72,73}_all.sh       # Abre 3 terminais por puzzle
+├── stop_puzzle{71,72,73}_all.sh        # Para puzzle em todas as redes
+├── run_networks_group_puzzle.sh        # Unidade interna (grupo + puzzle)
+├── lib/orchestrator_common.sh          # Funções compartilhadas
 ├── setup_toolbox.sh                    # Bootstrap e dependências
 ├── check_*.py                          # Extratores de saldos por rede
 ├── check_all_networks.py               # Extrator mestre consolidado
