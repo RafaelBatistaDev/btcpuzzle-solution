@@ -1,5 +1,5 @@
 /**
- * Rate limiter compartilhado entre bitcoin_P2PKH e bitcoin_P2WPKH.
+ * Rate limiter compartilhado entre bitcoin_P2PKH, bitcoin_P2WPKH e bitcoin_P2SH-P2WPKH.
  * Garante uma única fila de requisições à API Bitcoin (mempool/blockchain/alchemy).
  */
 

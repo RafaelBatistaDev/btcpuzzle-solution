@@ -150,6 +150,12 @@ function initializeConfig() {
     const BTC_P2WPKH_MAX_REQ_24H = isValidInteger(process.env.BTC_P2WPKH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 'BTC_P2WPKH_MAX_REQ_24H', 1);
     const BTC_P2WPKH_TIMEOUT_MS = isValidInteger(process.env.BTC_P2WPKH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 'BTC_P2WPKH_TIMEOUT_MS', 1);
 
+    const BTC_P2SH_BATCH_SIZE = isValidInteger(process.env.BTC_P2SH_BATCH_SIZE || process.env.BTC_BATCH_SIZE || '20', 'BTC_P2SH_BATCH_SIZE', 1);
+    const BTC_P2SH_DELAY_MS = isValidInteger(process.env.BTC_P2SH_DELAY_MS || process.env.BTC_DELAY_MS || '460', 'BTC_P2SH_DELAY_MS', 0);
+    const BTC_P2SH_INITIAL_DELAY_MS = isValidInteger(process.env.BTC_P2SH_INITIAL_DELAY_MS || process.env.BTC_INITIAL_DELAY_MS || '0', 'BTC_P2SH_INITIAL_DELAY_MS', 0);
+    const BTC_P2SH_MAX_REQ_24H = isValidInteger(process.env.BTC_P2SH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 'BTC_P2SH_MAX_REQ_24H', 1);
+    const BTC_P2SH_TIMEOUT_MS = isValidInteger(process.env.BTC_P2SH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 'BTC_P2SH_TIMEOUT_MS', 1);
+
     // Validar Ethereum
     isValidApiKey(process.env.ETHERSCAN_KEY, 'ETHERSCAN_KEY');
     isValidAddress(process.env.ETH_TARGET_71, 'ETH_TARGET_71', 'ethereum');
@@ -236,6 +242,16 @@ function initializeConfig() {
       BTC_P2WPKH_TARGET_71: process.env.BTC_P2WPKH_TARGET_71,
       BTC_P2WPKH_TARGET_72: process.env.BTC_P2WPKH_TARGET_72,
       BTC_P2WPKH_TARGET_73: process.env.BTC_P2WPKH_TARGET_73,
+
+      // Bitcoin P2SH-P2WPKH
+      BTC_P2SH_BATCH_SIZE,
+      BTC_P2SH_DELAY_MS,
+      BTC_P2SH_INITIAL_DELAY_MS,
+      BTC_P2SH_MAX_REQ_24H,
+      BTC_P2SH_TIMEOUT_MS,
+      BTC_P2SH_TARGET_71: process.env.BTC_P2SH_TARGET_71,
+      BTC_P2SH_TARGET_72: process.env.BTC_P2SH_TARGET_72,
+      BTC_P2SH_TARGET_73: process.env.BTC_P2SH_TARGET_73,
       
       // Ethereum
       RPC_ENDPOINT: 'https://api.etherscan.io/v2/api',

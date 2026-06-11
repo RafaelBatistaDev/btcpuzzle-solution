@@ -277,6 +277,21 @@ export function validateConfig() {
   const BTC_P2WPKH_TIMEOUT_MS = isValidInteger(process.env.BTC_P2WPKH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 'BTC_P2WPKH_TIMEOUT_MS', 1);
   if (!BTC_P2WPKH_TIMEOUT_MS.valid) errors.push(BTC_P2WPKH_TIMEOUT_MS.error);
 
+  const BTC_P2SH_BATCH_SIZE = isValidInteger(process.env.BTC_P2SH_BATCH_SIZE || process.env.BTC_BATCH_SIZE || '20', 'BTC_P2SH_BATCH_SIZE', 1);
+  if (!BTC_P2SH_BATCH_SIZE.valid) errors.push(BTC_P2SH_BATCH_SIZE.error);
+
+  const BTC_P2SH_DELAY_MS = isValidInteger(process.env.BTC_P2SH_DELAY_MS || process.env.BTC_DELAY_MS || '460', 'BTC_P2SH_DELAY_MS', 0);
+  if (!BTC_P2SH_DELAY_MS.valid) errors.push(BTC_P2SH_DELAY_MS.error);
+
+  const BTC_P2SH_INITIAL_DELAY_MS = isValidInteger(process.env.BTC_P2SH_INITIAL_DELAY_MS || process.env.BTC_INITIAL_DELAY_MS || '0', 'BTC_P2SH_INITIAL_DELAY_MS', 0);
+  if (!BTC_P2SH_INITIAL_DELAY_MS.valid) errors.push(BTC_P2SH_INITIAL_DELAY_MS.error);
+
+  const BTC_P2SH_MAX_REQ_24H = isValidInteger(process.env.BTC_P2SH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 'BTC_P2SH_MAX_REQ_24H', 1);
+  if (!BTC_P2SH_MAX_REQ_24H.valid) errors.push(BTC_P2SH_MAX_REQ_24H.error);
+
+  const BTC_P2SH_TIMEOUT_MS = isValidInteger(process.env.BTC_P2SH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 'BTC_P2SH_TIMEOUT_MS', 1);
+  if (!BTC_P2SH_TIMEOUT_MS.valid) errors.push(BTC_P2SH_TIMEOUT_MS.error);
+
   // ========================================
   // ETHEREUM CONFIGURATION
   // ========================================
@@ -506,6 +521,16 @@ export function getConfig() {
     BTC_P2WPKH_TARGET_71: process.env.BTC_P2WPKH_TARGET_71,
     BTC_P2WPKH_TARGET_72: process.env.BTC_P2WPKH_TARGET_72,
     BTC_P2WPKH_TARGET_73: process.env.BTC_P2WPKH_TARGET_73,
+
+    // Bitcoin P2SH-P2WPKH
+    BTC_P2SH_BATCH_SIZE: parseInt(process.env.BTC_P2SH_BATCH_SIZE || process.env.BTC_BATCH_SIZE || '20', 10),
+    BTC_P2SH_DELAY_MS: parseInt(process.env.BTC_P2SH_DELAY_MS || process.env.BTC_DELAY_MS || '460', 10),
+    BTC_P2SH_INITIAL_DELAY_MS: parseInt(process.env.BTC_P2SH_INITIAL_DELAY_MS || process.env.BTC_INITIAL_DELAY_MS || '0', 10),
+    BTC_P2SH_MAX_REQ_24H: parseInt(process.env.BTC_P2SH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 10),
+    BTC_P2SH_TIMEOUT_MS: parseInt(process.env.BTC_P2SH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 10),
+    BTC_P2SH_TARGET_71: process.env.BTC_P2SH_TARGET_71,
+    BTC_P2SH_TARGET_72: process.env.BTC_P2SH_TARGET_72,
+    BTC_P2SH_TARGET_73: process.env.BTC_P2SH_TARGET_73,
 
     // Ethereum
     RPC_ENDPOINT: process.env.RPC_ENDPOINT,

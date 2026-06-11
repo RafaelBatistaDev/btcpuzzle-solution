@@ -11,9 +11,10 @@ from pathlib import Path
 from audit_common import W, C, RS, G, R, Y
 
 AUDITS = [
-    ("Bitcoin P2PKH",  "audit_bitcoin_network.py"),
-    ("Bitcoin P2WPKH", "audit_bitcoin2_network.py"),
-    ("Ethereum",       "audit_ethereum_network.py"),
+    ("Bitcoin P2PKH",       "audit_bitcoin_network.py"),
+    ("Bitcoin P2WPKH",      "audit_bitcoin2_network.py"),
+    ("Bitcoin P2SH-P2WPKH", "audit_bitcoin3_network.py"),
+    ("Ethereum",            "audit_ethereum_network.py"),
     ("Solana",         "audit_solana_network.py"),
     ("Polygon",        "audit_polygon_network.py"),
     ("BNB Chain",      "audit_bnb_network.py"),

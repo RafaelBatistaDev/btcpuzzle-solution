@@ -200,6 +200,7 @@ export SOL_DELAY_MS=1500
 export BTC_DELAY_MS=4000
 export BTC_P2PKH_DELAY_MS=4000
 export BTC_P2WPKH_DELAY_MS=4000
+export BTC_P2SH_DELAY_MS=4000
 echo "⏱️  Delays ajustados para execução paralela segura (EVM: 2.5s, Solana: 1.5s, Bitcoin: 4s)"
 
 echo ""
@@ -235,12 +236,12 @@ if [ $TOTAL_REDES_OK -eq 0 ]; then
   exit 1
 fi
 
-echo -e "${GREEN}✅ $TOTAL_REDES_OK de 5 redes disponíveis (Bitcoin alternará P2PKH ↔ P2WPKH por lote) - iniciando processo${NC}"
+echo -e "${GREEN}✅ $TOTAL_REDES_OK de 5 redes disponíveis (Bitcoin alternará P2PKH ↔ P2WPKH ↔ P2SH-P2WPKH por lote) - iniciando processo${NC}"
 echo ""
 
 # ============ BITCOIN ============
 if [ $BTC_OK -eq 1 ]; then
-  echo "▶️  [1/5] Bitcoin P72 (Alternado: P2PKH ↔ P2WPKH)..."
+  echo "▶️  [1/5] Bitcoin P72 (Alternado: P2PKH ↔ P2WPKH ↔ P2SH-P2WPKH)..."
   (run_puzzle_safe "BITCOIN" 72 "bitcoin_alternating_coordinator.js") &
   BTC_P72=$!
   pids+=($BTC_P72)
@@ -323,4 +324,4 @@ echo "╚═══════════════════════�
 echo ""
 
 # Cleanup de logs temporários
-rm -f /tmp/{BITCOIN,BITCOIN_P2PKH,BITCOIN_P2WPKH,ETHEREUM,SOLANA,POLYGON,BNB}_p*.log 2>/dev/null || true
+rm -f /tmp/{BITCOIN,BITCOIN_P2PKH,BITCOIN_P2WPKH,BITCOIN_P2SH-P2WPKH,ETHEREUM,SOLANA,POLYGON,BNB}_p*.log 2>/dev/null || true

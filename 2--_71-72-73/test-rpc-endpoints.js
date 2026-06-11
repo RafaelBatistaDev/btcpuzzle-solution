@@ -17,6 +17,7 @@ import { RUNTIME_CONFIG as BNB_CONFIG } from './bnb/config/config.js';
 import { RUNTIME_CONFIG as SOLANA_CONFIG } from './solana/config/config.js';
 import { RUNTIME_CONFIG as BTC_P2PKH_CONFIG } from './bitcoin_P2PKH/config/config.js';
 import { RUNTIME_CONFIG as BTC_P2WPKH_CONFIG } from './bitcoin_P2WPKH/config/config.js';
+import { RUNTIME_CONFIG as BTC_P2SH_CONFIG } from './bitcoin_P2SH-P2WPKH/config/config.js';
 
 console.log('\n🧪 TESTE: Cada Solver Consulta a Rede Correta\n');
 console.log('═'.repeat(70));
@@ -64,6 +65,12 @@ console.log(`   API URL: ${BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
 console.log(`   Provedor: ${btcProvider(BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)}`);
 console.log(`   Suportado (mempool/blockchain)? ${['mempool', 'blockchain.info'].includes(btcProvider(BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
 
+// Teste 7: Bitcoin P2SH-P2WPKH
+console.log('\n✅ BITCOIN P2SH-P2WPKH Solver:');
+console.log(`   API URL: ${BTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
+console.log(`   Provedor: ${btcProvider(BTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)}`);
+console.log(`   Suportado (mempool/blockchain)? ${['mempool', 'blockchain.info'].includes(btcProvider(BTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
+
 console.log('\n' + '═'.repeat(70));
 
 // Validação Final
@@ -93,6 +100,10 @@ const checks = [
   {
     name: 'Bitcoin P2WPKH',
     pass: ['mempool', 'blockchain.info'].includes(btcProvider(BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
+  },
+  {
+    name: 'Bitcoin P2SH-P2WPKH',
+    pass: ['mempool', 'blockchain.info'].includes(btcProvider(BTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
   },
 ];
 

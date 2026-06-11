@@ -20,6 +20,7 @@ NETWORK_ZERO_FIELDS: Dict[str, Dict] = {
     "bnb":      {"finalBalance": 0, "nTx": 0},
     "bitcoin_P2PKH":  {"finalBalance": 0, "nTx": 0},
     "bitcoin_P2WPKH": {"finalBalance": 0, "nTx": 0},
+    "bitcoin_P2SH-P2WPKH": {"finalBalance": 0, "nTx": 0},
     "ethereum": {"finalBalance": 0, "nTx": 0},
     "polygon":  {"finalBalance": 0, "nTx": 0},
     "solana":   {"finalBalance": 0, "nTx": 0},
@@ -75,7 +76,7 @@ def is_line_with_balance_for_network(line: str, network_name: str) -> bool:
                 return True
 
         # Bitcoin: verificação adicional nos formatos aninhados
-        if network_name in ["bitcoin_P2PKH", "bitcoin_P2WPKH"]:
+        if network_name in ["bitcoin_P2PKH", "bitcoin_P2WPKH", "bitcoin_P2SH-P2WPKH"]:
             for fmt_data in data.get('formats', {}).values():
                 if isinstance(fmt_data, dict):
                     if fmt_data.get('balance', 0) != 0 or fmt_data.get('txCount', 0) != 0:
@@ -184,7 +185,7 @@ def main() -> None:
     print("╚" + "="*58 + "╝")
 
     script_dir = Path(__file__).parent.absolute()
-    networks = ["bitcoin_P2PKH", "bitcoin_P2WPKH", "ethereum", "solana", "polygon", "bnb"]
+    networks = ["bitcoin_P2PKH", "bitcoin_P2WPKH", "bitcoin_P2SH-P2WPKH", "ethereum", "solana", "polygon", "bnb"]
 
     all_results: Dict[str, Tuple[int, List[str]]] = {}
     grand_total = 0

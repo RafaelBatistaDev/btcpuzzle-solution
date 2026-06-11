@@ -55,6 +55,17 @@ BTC_P2WPKH_TARGET_71=bc1q0j55cut9nd2c88tnnsfultdx696c8lt6n4n0su
 BTC_P2WPKH_TARGET_72=bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2
 BTC_P2WPKH_TARGET_73=bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt
 
+# -------- BITCOIN P2SH-P2WPKH (SegWit wrapped / BIP49) --------
+BTC_P2SH_BATCH_SIZE=20
+BTC_P2SH_DELAY_MS=2000
+BTC_P2SH_INITIAL_DELAY_MS=0
+BTC_P2SH_MAX_REQ_24H=30000
+BTC_P2SH_TIMEOUT_MS=3000
+
+BTC_P2SH_TARGET_71=36rRUPzhHyrkyNq9PD2B8WpTikki459JRn
+BTC_P2SH_TARGET_72=323Wf631NrQ7MAfdJ1cB6k5kaTfKAK1c7C
+BTC_P2SH_TARGET_73=3Ji9Q4ZX8uKVawfsarpck3RSzaA8rj8R4r
+
 # ============================================
 # ETHEREUM CONFIGURATION (Etherscan REST API V2)
 # ============================================
