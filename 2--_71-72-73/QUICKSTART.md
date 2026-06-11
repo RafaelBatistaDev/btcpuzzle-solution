@@ -16,7 +16,11 @@
     ```bash
     ./run_all_puzzles_bitcoin.sh
     ```
-    
+    Puzzle │ Iniciar                        │ Parar                           │
+  ├────────┼────────────────────────────────┼─────────────────────────────────┤
+  │ 71     │ ./run_all_networks_puzzle71.sh │ ./stop_all_networks_puzzle71.sh │
+  │ 72     │ ./run_all_networks_puzzle72.sh │ ./stop_all_networks_puzzle72.sh │
+  │ 73     │ ./run_all_networks_puzzle73.sh │ ./stop_all_networks_puzzle73.sh │
 ```bash
 toolbox create puzzle-solver
 ```

@@ -11,6 +11,12 @@ set +e
 set -m
 
 declare -a pids=()
+PIDFILE="/tmp/run_all_networks_puzzle71.pids"
+echo $$ > "$PIDFILE"
+
+record_pid() {
+  echo "$1" >> "$PIDFILE"
+}
 
 kill_process_tree() {
   local sig=$1
@@ -43,10 +49,11 @@ cleanup() {
   pkill -KILL -P $$ 2>/dev/null || true
 
   wait 2>/dev/null || true
+  rm -f "$PIDFILE"
   echo -e "${GREEN}✅ Processos finalizados.${NC}"
   exit 130
 }
-trap cleanup SIGINT SIGTERM
+trap cleanup SIGINT SIGTERM SIGHUP
 
 # Cores para output
 RED='\033[0;31m'
@@ -223,6 +230,7 @@ if [ $BTC_OK -eq 1 ]; then
   (run_puzzle_safe "BITCOIN" 71 "bitcoin_alternating_coordinator.js") &
   BTC_P71=$!
   pids+=($BTC_P71)
+  record_pid "$BTC_P71"
 else
   echo -e "${YELLOW}⏭️  Bitcoin pulado (API indisponível)${NC}"
   BTC_P71=""
@@ -235,6 +243,7 @@ if [ $ETH_OK -eq 1 ]; then
   (run_puzzle_safe "ETHEREUM" 71 "ethereum/puzzle_solver_ethereum.js") &
   ETH_P71=$!
   pids+=($ETH_P71)
+  record_pid "$ETH_P71"
 else
   echo -e "${YELLOW}⏭️  Ethereum pulado (API indisponível)${NC}"
   ETH_P71=""
@@ -247,6 +256,7 @@ if [ $SOL_OK -eq 1 ]; then
   (run_puzzle_safe "SOLANA" 71 "solana/puzzle_solver_solana.js") &
   SOL_P71=$!
   pids+=($SOL_P71)
+  record_pid "$SOL_P71"
 else
   echo -e "${YELLOW}⏭️  Solana pulado (API indisponível)${NC}"
   SOL_P71=""
@@ -259,6 +269,7 @@ if [ $POLY_OK -eq 1 ]; then
   (run_puzzle_safe "POLYGON" 71 "polygon/puzzle_solver_polygon.js") &
   POLY_P71=$!
   pids+=($POLY_P71)
+  record_pid "$POLY_P71"
 else
   echo -e "${YELLOW}⏭️  Polygon pulado (API indisponível)${NC}"
   POLY_P71=""
@@ -271,6 +282,7 @@ if [ $BNB_OK -eq 1 ]; then
   (run_puzzle_safe "BNB" 71 "bnb/puzzle_solver_bnb.js") &
   BNB_P71=$!
   pids+=($BNB_P71)
+  record_pid "$BNB_P71"
 else
   echo -e "${YELLOW}⏭️  BNB pulado (API indisponível)${NC}"
   BNB_P71=""
@@ -286,7 +298,8 @@ for pid in "${pids[@]}"; do
   wait $pid 2>/dev/null || true
 done
 
-trap - SIGINT SIGTERM
+trap - SIGINT SIGTERM SIGHUP
+rm -f "$PIDFILE"
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
