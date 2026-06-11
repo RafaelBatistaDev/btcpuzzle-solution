@@ -132,17 +132,23 @@ function initializeConfig() {
     }
 
     // Validar Bitcoin (opcional)
-    if (process.env.ANKR_BTC_BLOCKBOOK_URL) {
-      isValidUrl(process.env.ANKR_BTC_BLOCKBOOK_URL, 'ANKR_BTC_BLOCKBOOK_URL');
+    if (process.env.BLOCKCHAIN_INFO_BASE_URL) {
+      isValidUrl(process.env.BLOCKCHAIN_INFO_BASE_URL, 'BLOCKCHAIN_INFO_BASE_URL');
     }
-    const BLOCKBOOK_DELAY_MS = process.env.BLOCKBOOK_DELAY_MS ? isValidInteger(process.env.BLOCKBOOK_DELAY_MS, 'BLOCKBOOK_DELAY_MS', 0) : 0;
-    const BLOCKBOOK_TIMEOUT_MS = process.env.BLOCKBOOK_TIMEOUT_MS ? isValidInteger(process.env.BLOCKBOOK_TIMEOUT_MS, 'BLOCKBOOK_TIMEOUT_MS', 1) : 10000;
 
-    const BTC_BATCH_SIZE = isValidInteger(process.env.BTC_BATCH_SIZE || '20', 'BTC_BATCH_SIZE', 1);
-    const BTC_DELAY_MS = isValidInteger(process.env.BTC_DELAY_MS || '2000', 'BTC_DELAY_MS', 0);
-    const BTC_INITIAL_DELAY_MS = isValidInteger(process.env.BTC_INITIAL_DELAY_MS || '0', 'BTC_INITIAL_DELAY_MS', 0);
-    const BTC_MAX_REQ_24H = isValidInteger(process.env.BTC_MAX_REQ_24H || '30000', 'BTC_MAX_REQ_24H', 1);
-    const BTC_TIMEOUT_MS = isValidInteger(process.env.BTC_TIMEOUT_MS || '3000', 'BTC_TIMEOUT_MS', 1);
+    const BTC_DELAY_MS = isValidInteger(process.env.BTC_DELAY_MS || '460', 'BTC_DELAY_MS', 0);
+
+    const BTC_P2PKH_BATCH_SIZE = isValidInteger(process.env.BTC_P2PKH_BATCH_SIZE || process.env.BTC_BATCH_SIZE || '20', 'BTC_P2PKH_BATCH_SIZE', 1);
+    const BTC_P2PKH_DELAY_MS = isValidInteger(process.env.BTC_P2PKH_DELAY_MS || process.env.BTC_DELAY_MS || '460', 'BTC_P2PKH_DELAY_MS', 0);
+    const BTC_P2PKH_INITIAL_DELAY_MS = isValidInteger(process.env.BTC_P2PKH_INITIAL_DELAY_MS || process.env.BTC_INITIAL_DELAY_MS || '0', 'BTC_P2PKH_INITIAL_DELAY_MS', 0);
+    const BTC_P2PKH_MAX_REQ_24H = isValidInteger(process.env.BTC_P2PKH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 'BTC_P2PKH_MAX_REQ_24H', 1);
+    const BTC_P2PKH_TIMEOUT_MS = isValidInteger(process.env.BTC_P2PKH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 'BTC_P2PKH_TIMEOUT_MS', 1);
+
+    const BTC_P2WPKH_BATCH_SIZE = isValidInteger(process.env.BTC_P2WPKH_BATCH_SIZE || process.env.BTC_BATCH_SIZE || '20', 'BTC_P2WPKH_BATCH_SIZE', 1);
+    const BTC_P2WPKH_DELAY_MS = isValidInteger(process.env.BTC_P2WPKH_DELAY_MS || process.env.BTC_DELAY_MS || '460', 'BTC_P2WPKH_DELAY_MS', 0);
+    const BTC_P2WPKH_INITIAL_DELAY_MS = isValidInteger(process.env.BTC_P2WPKH_INITIAL_DELAY_MS || process.env.BTC_INITIAL_DELAY_MS || '0', 'BTC_P2WPKH_INITIAL_DELAY_MS', 0);
+    const BTC_P2WPKH_MAX_REQ_24H = isValidInteger(process.env.BTC_P2WPKH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 'BTC_P2WPKH_MAX_REQ_24H', 1);
+    const BTC_P2WPKH_TIMEOUT_MS = isValidInteger(process.env.BTC_P2WPKH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 'BTC_P2WPKH_TIMEOUT_MS', 1);
 
     // Validar Ethereum
     isValidApiKey(process.env.ETHERSCAN_KEY, 'ETHERSCAN_KEY');
@@ -207,15 +213,29 @@ function initializeConfig() {
       TIMEOUT_MS,
       SEARCH_MODE,
       
-      // Bitcoin
-      ANKR_BTC_BLOCKBOOK_URL: process.env.ANKR_BTC_BLOCKBOOK_URL,
-      BLOCKBOOK_DELAY_MS,
-      BLOCKBOOK_TIMEOUT_MS,
-      BTC_BATCH_SIZE,
+      // Bitcoin — API compartilhada
+      BLOCKCHAIN_INFO_BASE_URL: process.env.BLOCKCHAIN_INFO_BASE_URL,
       BTC_DELAY_MS,
-      BTC_INITIAL_DELAY_MS,
-      BTC_MAX_REQ_24H,
-      BTC_TIMEOUT_MS,
+
+      // Bitcoin P2PKH
+      BTC_P2PKH_BATCH_SIZE,
+      BTC_P2PKH_DELAY_MS,
+      BTC_P2PKH_INITIAL_DELAY_MS,
+      BTC_P2PKH_MAX_REQ_24H,
+      BTC_P2PKH_TIMEOUT_MS,
+      BTC_P2PKH_TARGET_71: process.env.BTC_P2PKH_TARGET_71,
+      BTC_P2PKH_TARGET_72: process.env.BTC_P2PKH_TARGET_72,
+      BTC_P2PKH_TARGET_73: process.env.BTC_P2PKH_TARGET_73,
+
+      // Bitcoin P2WPKH
+      BTC_P2WPKH_BATCH_SIZE,
+      BTC_P2WPKH_DELAY_MS,
+      BTC_P2WPKH_INITIAL_DELAY_MS,
+      BTC_P2WPKH_MAX_REQ_24H,
+      BTC_P2WPKH_TIMEOUT_MS,
+      BTC_P2WPKH_TARGET_71: process.env.BTC_P2WPKH_TARGET_71,
+      BTC_P2WPKH_TARGET_72: process.env.BTC_P2WPKH_TARGET_72,
+      BTC_P2WPKH_TARGET_73: process.env.BTC_P2WPKH_TARGET_73,
       
       // Ethereum
       RPC_ENDPOINT: 'https://api.etherscan.io/v2/api',

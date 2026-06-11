@@ -239,46 +239,43 @@ export function validateConfig() {
   // ========================================
   // BITCOIN CONFIGURATION
   // ========================================
-  if (process.env.ANKR_BTC_BLOCKBOOK_URL) {
-    const btcUrl = isValidUrl(
-      process.env.ANKR_BTC_BLOCKBOOK_URL,
-      'ANKR_BTC_BLOCKBOOK_URL'
-    );
-    if (!btcUrl.valid) errors.push(btcUrl.error);
+  if (process.env.BLOCKCHAIN_INFO_BASE_URL) {
+    const btcApiUrl = isValidUrl(process.env.BLOCKCHAIN_INFO_BASE_URL, 'BLOCKCHAIN_INFO_BASE_URL');
+    if (!btcApiUrl.valid) errors.push(btcApiUrl.error);
   }
 
-  if (process.env.BLOCKBOOK_DELAY_MS) {
-    const BLOCKBOOK_DELAY_MS = isValidInteger(
-      process.env.BLOCKBOOK_DELAY_MS,
-      'BLOCKBOOK_DELAY_MS',
-      0
-    );
-    if (!BLOCKBOOK_DELAY_MS.valid) errors.push(BLOCKBOOK_DELAY_MS.error);
-  }
-
-  if (process.env.BLOCKBOOK_TIMEOUT_MS) {
-    const BLOCKBOOK_TIMEOUT_MS = isValidInteger(
-      process.env.BLOCKBOOK_TIMEOUT_MS,
-      'BLOCKBOOK_TIMEOUT_MS',
-      1
-    );
-    if (!BLOCKBOOK_TIMEOUT_MS.valid) errors.push(BLOCKBOOK_TIMEOUT_MS.error);
-  }
-
-  const BTC_BATCH_SIZE = isValidInteger(process.env.BTC_BATCH_SIZE || '20', 'BTC_BATCH_SIZE', 1);
-  if (!BTC_BATCH_SIZE.valid) errors.push(BTC_BATCH_SIZE.error);
-
-  const BTC_DELAY_MS = isValidInteger(process.env.BTC_DELAY_MS || '2000', 'BTC_DELAY_MS', 0);
+  const BTC_DELAY_MS = isValidInteger(process.env.BTC_DELAY_MS || '460', 'BTC_DELAY_MS', 0);
   if (!BTC_DELAY_MS.valid) errors.push(BTC_DELAY_MS.error);
 
-  const BTC_INITIAL_DELAY_MS = isValidInteger(process.env.BTC_INITIAL_DELAY_MS || '0', 'BTC_INITIAL_DELAY_MS', 0);
-  if (!BTC_INITIAL_DELAY_MS.valid) errors.push(BTC_INITIAL_DELAY_MS.error);
+  const BTC_P2PKH_BATCH_SIZE = isValidInteger(process.env.BTC_P2PKH_BATCH_SIZE || process.env.BTC_BATCH_SIZE || '20', 'BTC_P2PKH_BATCH_SIZE', 1);
+  if (!BTC_P2PKH_BATCH_SIZE.valid) errors.push(BTC_P2PKH_BATCH_SIZE.error);
 
-  const BTC_MAX_REQ_24H = isValidInteger(process.env.BTC_MAX_REQ_24H || '30000', 'BTC_MAX_REQ_24H', 1);
-  if (!BTC_MAX_REQ_24H.valid) errors.push(BTC_MAX_REQ_24H.error);
+  const BTC_P2PKH_DELAY_MS = isValidInteger(process.env.BTC_P2PKH_DELAY_MS || process.env.BTC_DELAY_MS || '460', 'BTC_P2PKH_DELAY_MS', 0);
+  if (!BTC_P2PKH_DELAY_MS.valid) errors.push(BTC_P2PKH_DELAY_MS.error);
 
-  const BTC_TIMEOUT_MS = isValidInteger(process.env.BTC_TIMEOUT_MS || '3000', 'BTC_TIMEOUT_MS', 1);
-  if (!BTC_TIMEOUT_MS.valid) errors.push(BTC_TIMEOUT_MS.error);
+  const BTC_P2PKH_INITIAL_DELAY_MS = isValidInteger(process.env.BTC_P2PKH_INITIAL_DELAY_MS || process.env.BTC_INITIAL_DELAY_MS || '0', 'BTC_P2PKH_INITIAL_DELAY_MS', 0);
+  if (!BTC_P2PKH_INITIAL_DELAY_MS.valid) errors.push(BTC_P2PKH_INITIAL_DELAY_MS.error);
+
+  const BTC_P2PKH_MAX_REQ_24H = isValidInteger(process.env.BTC_P2PKH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 'BTC_P2PKH_MAX_REQ_24H', 1);
+  if (!BTC_P2PKH_MAX_REQ_24H.valid) errors.push(BTC_P2PKH_MAX_REQ_24H.error);
+
+  const BTC_P2PKH_TIMEOUT_MS = isValidInteger(process.env.BTC_P2PKH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 'BTC_P2PKH_TIMEOUT_MS', 1);
+  if (!BTC_P2PKH_TIMEOUT_MS.valid) errors.push(BTC_P2PKH_TIMEOUT_MS.error);
+
+  const BTC_P2WPKH_BATCH_SIZE = isValidInteger(process.env.BTC_P2WPKH_BATCH_SIZE || process.env.BTC_BATCH_SIZE || '20', 'BTC_P2WPKH_BATCH_SIZE', 1);
+  if (!BTC_P2WPKH_BATCH_SIZE.valid) errors.push(BTC_P2WPKH_BATCH_SIZE.error);
+
+  const BTC_P2WPKH_DELAY_MS = isValidInteger(process.env.BTC_P2WPKH_DELAY_MS || process.env.BTC_DELAY_MS || '460', 'BTC_P2WPKH_DELAY_MS', 0);
+  if (!BTC_P2WPKH_DELAY_MS.valid) errors.push(BTC_P2WPKH_DELAY_MS.error);
+
+  const BTC_P2WPKH_INITIAL_DELAY_MS = isValidInteger(process.env.BTC_P2WPKH_INITIAL_DELAY_MS || process.env.BTC_INITIAL_DELAY_MS || '0', 'BTC_P2WPKH_INITIAL_DELAY_MS', 0);
+  if (!BTC_P2WPKH_INITIAL_DELAY_MS.valid) errors.push(BTC_P2WPKH_INITIAL_DELAY_MS.error);
+
+  const BTC_P2WPKH_MAX_REQ_24H = isValidInteger(process.env.BTC_P2WPKH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 'BTC_P2WPKH_MAX_REQ_24H', 1);
+  if (!BTC_P2WPKH_MAX_REQ_24H.valid) errors.push(BTC_P2WPKH_MAX_REQ_24H.error);
+
+  const BTC_P2WPKH_TIMEOUT_MS = isValidInteger(process.env.BTC_P2WPKH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 'BTC_P2WPKH_TIMEOUT_MS', 1);
+  if (!BTC_P2WPKH_TIMEOUT_MS.valid) errors.push(BTC_P2WPKH_TIMEOUT_MS.error);
 
   // ========================================
   // ETHEREUM CONFIGURATION
@@ -486,15 +483,29 @@ export function getConfig() {
     TIMEOUT_MS: parseInt(process.env.TIMEOUT_MS, 10),
     SEARCH_MODE: process.env.SEARCH_MODE,
 
-    // Bitcoin
-    ANKR_BTC_BLOCKBOOK_URL: process.env.ANKR_BTC_BLOCKBOOK_URL,
-    BLOCKBOOK_DELAY_MS: parseInt(process.env.BLOCKBOOK_DELAY_MS || '0', 10),
-    BLOCKBOOK_TIMEOUT_MS: parseInt(process.env.BLOCKBOOK_TIMEOUT_MS || '10000', 10),
-    BTC_BATCH_SIZE: parseInt(process.env.BTC_BATCH_SIZE || '20', 10),
-    BTC_DELAY_MS: parseInt(process.env.BTC_DELAY_MS || '2000', 10),
-    BTC_INITIAL_DELAY_MS: parseInt(process.env.BTC_INITIAL_DELAY_MS || '0', 10),
-    BTC_MAX_REQ_24H: parseInt(process.env.BTC_MAX_REQ_24H || '30000', 10),
-    BTC_TIMEOUT_MS: parseInt(process.env.BTC_TIMEOUT_MS || '3000', 10),
+    // Bitcoin — API compartilhada
+    BLOCKCHAIN_INFO_BASE_URL: process.env.BLOCKCHAIN_INFO_BASE_URL,
+    BTC_DELAY_MS: parseInt(process.env.BTC_DELAY_MS || '460', 10),
+
+    // Bitcoin P2PKH
+    BTC_P2PKH_BATCH_SIZE: parseInt(process.env.BTC_P2PKH_BATCH_SIZE || process.env.BTC_BATCH_SIZE || '20', 10),
+    BTC_P2PKH_DELAY_MS: parseInt(process.env.BTC_P2PKH_DELAY_MS || process.env.BTC_DELAY_MS || '460', 10),
+    BTC_P2PKH_INITIAL_DELAY_MS: parseInt(process.env.BTC_P2PKH_INITIAL_DELAY_MS || process.env.BTC_INITIAL_DELAY_MS || '0', 10),
+    BTC_P2PKH_MAX_REQ_24H: parseInt(process.env.BTC_P2PKH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 10),
+    BTC_P2PKH_TIMEOUT_MS: parseInt(process.env.BTC_P2PKH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 10),
+    BTC_P2PKH_TARGET_71: process.env.BTC_P2PKH_TARGET_71,
+    BTC_P2PKH_TARGET_72: process.env.BTC_P2PKH_TARGET_72,
+    BTC_P2PKH_TARGET_73: process.env.BTC_P2PKH_TARGET_73,
+
+    // Bitcoin P2WPKH
+    BTC_P2WPKH_BATCH_SIZE: parseInt(process.env.BTC_P2WPKH_BATCH_SIZE || process.env.BTC_BATCH_SIZE || '20', 10),
+    BTC_P2WPKH_DELAY_MS: parseInt(process.env.BTC_P2WPKH_DELAY_MS || process.env.BTC_DELAY_MS || '460', 10),
+    BTC_P2WPKH_INITIAL_DELAY_MS: parseInt(process.env.BTC_P2WPKH_INITIAL_DELAY_MS || process.env.BTC_INITIAL_DELAY_MS || '0', 10),
+    BTC_P2WPKH_MAX_REQ_24H: parseInt(process.env.BTC_P2WPKH_MAX_REQ_24H || process.env.BTC_MAX_REQ_24H || '90000', 10),
+    BTC_P2WPKH_TIMEOUT_MS: parseInt(process.env.BTC_P2WPKH_TIMEOUT_MS || process.env.BTC_TIMEOUT_MS || '3000', 10),
+    BTC_P2WPKH_TARGET_71: process.env.BTC_P2WPKH_TARGET_71,
+    BTC_P2WPKH_TARGET_72: process.env.BTC_P2WPKH_TARGET_72,
+    BTC_P2WPKH_TARGET_73: process.env.BTC_P2WPKH_TARGET_73,
 
     // Ethereum
     RPC_ENDPOINT: process.env.RPC_ENDPOINT,

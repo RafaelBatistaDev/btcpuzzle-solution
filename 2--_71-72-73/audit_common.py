@@ -300,7 +300,20 @@ def detect_bitcoin_provider(base_url: str) -> str:
     return "blockchain.info"
 
 
-def query_bitcoin_balance(base_url: str, addr: str, timeout: float) -> dict[str, Any]:
+def mempool_address_url(base_url: str, addr: str) -> str:
+    """Monta URL /api/address/{addr} aceitando base com ou sem sufixo /api."""
+    root = base_url.rstrip("/")
+    if root.endswith("/api"):
+        return f"{root}/address/{addr}"
+    return f"{root}/api/address/{addr}"
+
+
+def query_bitcoin_balance(
+    base_url: str,
+    addr: str,
+    timeout: float,
+    env: dict[str, str] | None = None,
+) -> dict[str, Any]:
     """
     Consulta saldo Bitcoin usando a mesma lógica do solver.js.
 
@@ -323,12 +336,14 @@ def query_bitcoin_balance(base_url: str, addr: str, timeout: float) -> dict[str,
             return {"addr": addr, "saldo": saldo, "n_tx": 0, "ms": ms, "status": 200, "ok": True, "provider": provider}
 
         if provider == "mempool":
-            # Mesmo path que solver.js: baseUrl + /api/address/{addr}
-            status, body, _ = http_get(f"{base}/api/address/{addr}", timeout)
+            status, body, _ = http_get(mempool_address_url(base, addr), timeout)
             ms = (time.time() - t0) * 1000
             if status == 429:
                 return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": 429, "ok": False, "provider": provider}
             if status == 404:
+                body_text = body if isinstance(body, str) else json.dumps(body)
+                if "endpoint does not exist" in body_text:
+                    return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": 404, "ok": False, "provider": provider}
                 return {"addr": addr, "saldo": 0, "n_tx": 0, "ms": ms, "status": 404, "ok": True, "provider": provider}
             if status != 200 or not isinstance(body, dict):
                 return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": status, "ok": False, "provider": provider}

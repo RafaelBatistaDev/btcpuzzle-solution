@@ -74,8 +74,20 @@ check_internet() {
 # Função para testar API de cada rede
 test_api_bitcoin() {
   local url="${BLOCKCHAIN_INFO_BASE_URL:-https://blockchain.info}"
-  echo -n "  🔗 Bitcoin API (Blockchain.info)... "
-  if curl -s -m 5 "${url}/balance?active=1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU" > /dev/null 2>&1; then
+  local probe_addr="1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU"
+  local test_url=""
+
+  if [[ "$url" == *"mempool.space"* ]]; then
+    local root="${url%/api}"
+    root="${root%/}"
+    test_url="${root}/api/address/${probe_addr}"
+    echo -n "  🔗 Bitcoin API (Mempool.space)... "
+  else
+    test_url="${url}/balance?active=${probe_addr}"
+    echo -n "  🔗 Bitcoin API (Blockchain.info)... "
+  fi
+
+  if curl -s -m 5 "${test_url}" > /dev/null 2>&1; then
     echo -e "${GREEN}✅${NC}"
     return 0
   else
@@ -185,7 +197,9 @@ export ETH_DELAY_MS=2500
 export BNB_DELAY_MS=2500
 export POLYGON_DELAY_MS=2500
 export SOL_DELAY_MS=1500
-export BTC_PUBLIC_API_DELAY_MS=4000
+export BTC_DELAY_MS=4000
+export BTC_P2PKH_DELAY_MS=4000
+export BTC_P2WPKH_DELAY_MS=4000
 echo "⏱️  Delays ajustados para execução paralela segura (EVM: 2.5s, Solana: 1.5s, Bitcoin: 4s)"
 
 echo ""

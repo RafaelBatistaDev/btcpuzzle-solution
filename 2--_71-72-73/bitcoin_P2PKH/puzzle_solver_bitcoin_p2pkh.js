@@ -10,7 +10,7 @@ import config from '../config.js';
  * - Importa solver modular de bitcoin_P2PKH/config/
  * - Suporta múltiplos puzzles (71, 72, 73)
  * - Gera formatos BIP P2PKH por chave privada
- * - Consulta saldo via Blockbook/Ankr
+ * - Consulta saldo via Mempool.space ou Blockchain.info
  * - Trata rate limiting (429) com retry automático
  * - Salva achados em relatorio_final/saldos_encontrados.jsonl
  */

@@ -75,9 +75,17 @@ MAX_REQ_24H=30000                # Máximo de consultas RPC em 24h para evitar b
 TIMEOUT_MS=3000                  # Limite de espera da requisição RPC (ms)
 SEARCH_MODE=sequential           # MANDATÓRIO: sequential (único modo aceito pelo validador)
 
-# -------- BITCOIN CONFIGURATION --------
+# -------- BITCOIN — API COMPARTILHADA --------
 BLOCKCHAIN_INFO_BASE_URL=https://blockchain.info
-BTC_PUBLIC_API_DELAY_MS=2000
+BTC_DELAY_MS=2000
+
+# -------- BITCOIN P2PKH --------
+BTC_P2PKH_BATCH_SIZE=20
+BTC_P2PKH_DELAY_MS=2000
+
+# -------- BITCOIN P2WPKH --------
+BTC_P2WPKH_BATCH_SIZE=20
+BTC_P2WPKH_DELAY_MS=2000
 
 # -------- ETHEREUM CONFIGURATION --------
 ETH_RPC_ENDPOINT=https://api.etherscan.io/v2/api

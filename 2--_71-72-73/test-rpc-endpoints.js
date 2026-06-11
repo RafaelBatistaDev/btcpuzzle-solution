@@ -8,7 +8,7 @@
  * - Polygon solver consulta POLYGON_RPC_ENDPOINT (Polygon)
  * - BNB solver consulta BNB_RPC_ENDPOINT (BNB Chain)
  * - Solana solver consulta SOL_RPC_ENDPOINT (Solana)
- * - Bitcoin solver consulta ANKR_BTC_BLOCKBOOK_URL (Bitcoin Blockbook)
+ * - Bitcoin solver consulta BLOCKCHAIN_INFO_BASE_URL (Mempool / Blockchain.info)
  */
 
 import { RUNTIME_CONFIG as ETH_CONFIG } from './ethereum/config/config.js';
@@ -50,12 +50,19 @@ console.log(`   Target: ${SOLANA_CONFIG.RPC_ENDPOINT.includes('ankr') ? '🔗 An
 // Teste 5: Bitcoin P2PKH
 console.log('\n✅ BITCOIN P2PKH Solver:');
 console.log(`   API URL: ${BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
-console.log(`   Contém "blockchain" ou "mempool"? ${(BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('blockchain') || BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('mempool')) ? '✅ SIM' : '❌ NÃO'}`);
+const btcProvider = (url) => {
+  if (url.includes('mempool.space')) return 'mempool';
+  if (url.includes('blockchain')) return 'blockchain.info';
+  return 'desconhecido';
+};
+console.log(`   Provedor: ${btcProvider(BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)}`);
+console.log(`   Suportado (mempool/blockchain)? ${['mempool', 'blockchain.info'].includes(btcProvider(BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
 
 // Teste 6: Bitcoin P2WPKH
 console.log('\n✅ BITCOIN P2WPKH Solver:');
 console.log(`   API URL: ${BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
-console.log(`   Contém "blockchain" ou "mempool"? ${(BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('blockchain') || BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('mempool')) ? '✅ SIM' : '❌ NÃO'}`);
+console.log(`   Provedor: ${btcProvider(BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)}`);
+console.log(`   Suportado (mempool/blockchain)? ${['mempool', 'blockchain.info'].includes(btcProvider(BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
 
 console.log('\n' + '═'.repeat(70));
 
@@ -81,11 +88,11 @@ const checks = [
   },
   {
     name: 'Bitcoin P2PKH',
-    pass: BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('blockchain') || BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('mempool'),
+    pass: ['mempool', 'blockchain.info'].includes(btcProvider(BTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
   },
   {
     name: 'Bitcoin P2WPKH',
-    pass: BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('blockchain') || BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL.includes('mempool'),
+    pass: ['mempool', 'blockchain.info'].includes(btcProvider(BTC_P2WPKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
   },
 ];
 

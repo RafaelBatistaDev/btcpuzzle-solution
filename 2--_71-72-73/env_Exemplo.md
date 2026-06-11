@@ -19,19 +19,41 @@ SEARCH_MODE=sequential
 
 
 # ============================================
-# BITCOIN CONFIGURATION
+# BITCOIN — API COMPARTILHADA (P2PKH + P2WPKH)
+# Suporta: Mempool.space, Blockchain.info
 # ============================================
 
-# API Endpoint para Bitcoin (Usado no solver e balance verifier)
 BLOCKCHAIN_INFO_BASE_URL=https://blockchain.info
+#BLOCKCHAIN_INFO_BASE_URL=https://mempool.space/api
 
-# Configurações Bitcoin
-BTC_PUBLIC_API_DELAY_MS=2000
+# Delay global do rate limiter no modo alternado (P2PKH ↔ P2WPKH)
+BTC_DELAY_MS=2000
 
-# Targets para Bitcoin Puzzles
-BTC_TARGET_71=1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU
-BTC_TARGET_72=1JTK7s9YVYywfm5XUH7RNhHJH1LshCaRFR
-BTC_TARGET_73=12VVRNPi4SJqUTsp6FmqDqY5sGosDtysn4
+# ============================================
+# BITCOIN P2PKH
+# ============================================
+BTC_P2PKH_BATCH_SIZE=20
+BTC_P2PKH_DELAY_MS=2000
+BTC_P2PKH_INITIAL_DELAY_MS=0
+BTC_P2PKH_MAX_REQ_24H=30000
+BTC_P2PKH_TIMEOUT_MS=3000
+
+BTC_P2PKH_TARGET_71=1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU
+BTC_P2PKH_TARGET_72=1JTK7s9YVYywfm5XUH7RNhHJH1LshCaRFR
+BTC_P2PKH_TARGET_73=12VVRNPi4SJqUTsp6FmqDqY5sGosDtysn4
+
+# ============================================
+# BITCOIN P2WPKH (SegWit)
+# ============================================
+BTC_P2WPKH_BATCH_SIZE=20
+BTC_P2WPKH_DELAY_MS=2000
+BTC_P2WPKH_INITIAL_DELAY_MS=0
+BTC_P2WPKH_MAX_REQ_24H=30000
+BTC_P2WPKH_TIMEOUT_MS=3000
+
+BTC_P2WPKH_TARGET_71=bc1q0j55cut9nd2c88tnnsfultdx696c8lt6n4n0su
+BTC_P2WPKH_TARGET_72=bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2
+BTC_P2WPKH_TARGET_73=bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt
 
 # ============================================
 # ETHEREUM CONFIGURATION (Etherscan REST API V2)

@@ -7,11 +7,15 @@
 import config from './config.js';
 import { BitcoinSolver as P2PKHSolver } from './bitcoin_P2PKH/config/solver.js';
 import { BitcoinSolver as P2WPKHSolver } from './bitcoin_P2WPKH/config/solver.js';
-import { ACTIVE_PUZZLES } from './bitcoin_P2PKH/config/config.js';
-import { RUNTIME_CONFIG } from './bitcoin_P2PKH/config/config.js';
+import { ACTIVE_PUZZLES, RUNTIME_CONFIG as P2PKH_RUNTIME } from './bitcoin_P2PKH/config/config.js';
+import { RUNTIME_CONFIG as P2WPKH_RUNTIME } from './bitcoin_P2WPKH/config/config.js';
 import { initLimiterDelay } from './bitcoin_rate_limiter.js';
 
-initLimiterDelay(RUNTIME_CONFIG.DELAY_MS);
+const sharedDelay = Number(
+  process.env.BTC_DELAY_MS ||
+  Math.max(P2PKH_RUNTIME.DELAY_MS, P2WPKH_RUNTIME.DELAY_MS)
+);
+initLimiterDelay(sharedDelay);
 
 function resolvePuzzleIds() {
   const fromEnv = Number(process.env.PUZZLE_ID || config.PUZZLE_ID);
@@ -23,8 +27,8 @@ async function runAlternatingForPuzzle(puzzleId) {
   const p2pkh = new P2PKHSolver(puzzleId);
   const p2wpkh = new P2WPKHSolver(puzzleId);
 
-  p2pkh.log(`[🔄] Modo alternado P2PKH ↔ P2WPKH (batch=${RUNTIME_CONFIG.BATCH_SIZE})`);
-  p2wpkh.log(`[🔄] Modo alternado P2PKH ↔ P2WPKH (batch=${RUNTIME_CONFIG.BATCH_SIZE})`);
+  p2pkh.log(`[🔄] Modo alternado P2PKH ↔ P2WPKH (batch P2PKH=${P2PKH_RUNTIME.BATCH_SIZE}, P2WPKH=${P2WPKH_RUNTIME.BATCH_SIZE})`);
+  p2wpkh.log(`[🔄] Modo alternado P2PKH ↔ P2WPKH (batch P2PKH=${P2PKH_RUNTIME.BATCH_SIZE}, P2WPKH=${P2WPKH_RUNTIME.BATCH_SIZE})`);
 
   let p2pkhDone = false;
   let p2wpkhDone = false;
@@ -92,7 +96,7 @@ const puzzleIds = resolvePuzzleIds();
 
 console.log('\n╔════════════════════════════════════════════════════════════╗');
 console.log('║  🚀 BITCOIN ALTERNADO — P2PKH ↔ P2WPKH por lote           ║');
-console.log(`║  Puzzles: ${puzzleIds.join(', ')}  |  Batch: ${RUNTIME_CONFIG.BATCH_SIZE}           ║`);
+console.log(`║  Puzzles: ${puzzleIds.join(', ')}  |  Batch: P2PKH=${P2PKH_RUNTIME.BATCH_SIZE} P2WPKH=${P2WPKH_RUNTIME.BATCH_SIZE} ║`);
 console.log('╚════════════════════════════════════════════════════════════╝\n');
 
 Promise.all(

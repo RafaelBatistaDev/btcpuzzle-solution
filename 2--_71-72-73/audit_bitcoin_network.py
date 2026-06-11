@@ -47,11 +47,11 @@ def main() -> int:
         env.get("BLOCKCHAIN_INFO_BASE_URL")
         or "https://blockchain.info"
     ).rstrip("/")
-    timeout = env_int(env, "BTC_TIMEOUT_MS", "TIMEOUT_MS", default=3000) / 1000.0
+    timeout = env_int(env, "BTC_P2PKH_TIMEOUT_MS", "BTC_TIMEOUT_MS", "TIMEOUT_MS", default=3000) / 1000.0
     delay_ms = env_int(
-        env, "BTC_DELAY_MS", "BTC_PUBLIC_API_DELAY_MS", "DELAY_MS", default=1200
+        env, "BTC_P2PKH_DELAY_MS", "BTC_DELAY_MS", "BTC_PUBLIC_API_DELAY_MS", "DELAY_MS", default=1200
     )
-    batch_size = env_int(env, "BTC_BATCH_SIZE", "BATCH_SIZE", default=20)
+    batch_size = env_int(env, "BTC_P2PKH_BATCH_SIZE", "BTC_BATCH_SIZE", "BATCH_SIZE", default=20)
     provider = detect_bitcoin_provider(base_url)
 
     info(f"Provedor detectado: {provider}")
@@ -67,7 +67,10 @@ def main() -> int:
             "BTC_P2PKH_TARGET_72",
             "BTC_P2PKH_TARGET_73",
         ],
-        optional=["BTC_DELAY_MS", "BTC_BATCH_SIZE", "BTC_TIMEOUT_MS", "BTC_MAX_REQ_24H"],
+        optional=[
+            "BTC_P2PKH_DELAY_MS", "BTC_P2PKH_BATCH_SIZE", "BTC_P2PKH_TIMEOUT_MS",
+            "BTC_P2PKH_MAX_REQ_24H", "BTC_DELAY_MS",
+        ],
     )
 
     audit_cache_files(result, root / "bitcoin_P2PKH")
@@ -76,7 +79,7 @@ def main() -> int:
     # ── Conectividade ─────────────────────────────────────────────────────────
     section("CONECTIVIDADE COM A API")
     probe_addr = targets[71]
-    r = query_bitcoin_balance(base_url, probe_addr, timeout)
+    r = query_bitcoin_balance(base_url, probe_addr, timeout, env)
     if r["ok"]:
         result.ok(f"conectividade via {provider}")
         ok(f"API respondeu em {r['ms']:.0f}ms  (puzzle #71)")
@@ -100,7 +103,7 @@ def main() -> int:
     for i, (pid, addr) in enumerate(targets.items()):
         if i > 0 and delay_ms > 0:
             time.sleep(delay_ms / 1000.0)
-        r = query_bitcoin_balance(base_url, addr, timeout)
+        r = query_bitcoin_balance(base_url, addr, timeout, env)
         print_bitcoin_result(f"Puzzle #{pid}", r)
         if r["ok"]:
             result.ok(f"puzzle #{pid}")
@@ -123,7 +126,7 @@ def main() -> int:
     for i, addr in enumerate(batch_addrs[:batch_size]):
         if i > 0 and delay_ms > 0:
             time.sleep(delay_ms / 1000.0)
-        r = query_bitcoin_balance(base_url, addr, timeout)
+        r = query_bitcoin_balance(base_url, addr, timeout, env)
         if r["ok"]:
             batch_ok += 1
         if r["status"] == 429:
@@ -137,7 +140,7 @@ def main() -> int:
 
     # ── Rate limit probe ──────────────────────────────────────────────────────
     def _probe() -> tuple[int, object]:
-        r = query_bitcoin_balance(base_url, probe_addr, timeout)
+        r = query_bitcoin_balance(base_url, probe_addr, timeout, env)
         # Mempool retorna 404 para endereço sem histórico — resposta válida
         status = 200 if r["ok"] else (r["status"] if isinstance(r["status"], int) else 0)
         return (status, r)

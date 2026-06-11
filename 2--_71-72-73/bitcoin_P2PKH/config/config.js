@@ -66,27 +66,33 @@ export const RUNTIME_CONFIG = {
   BLOCKCHAIN_INFO_BASE_URL: baseUrl,
   SEARCH_MODE: 'sequential',
   BATCH_SIZE: Number(
-    process.env.BTC_BATCH_SIZE || envConfig.BTC_BATCH_SIZE ||
-    process.env.BATCH_SIZE     || envConfig.BATCH_SIZE     ||
+    process.env.BTC_P2PKH_BATCH_SIZE || envConfig.BTC_P2PKH_BATCH_SIZE ||
+    process.env.BTC_BATCH_SIZE         || envConfig.BTC_BATCH_SIZE         ||
+    process.env.BATCH_SIZE             || envConfig.BATCH_SIZE             ||
     20
   ),
   DELAY_MS: Number(
+    process.env.BTC_P2PKH_DELAY_MS      || envConfig.BTC_P2PKH_DELAY_MS      ||
     process.env.BTC_DELAY_MS            || envConfig.BTC_DELAY_MS            ||
     process.env.BTC_PUBLIC_API_DELAY_MS || envConfig.BTC_PUBLIC_API_DELAY_MS ||
     process.env.DELAY_MS                || envConfig.DELAY_MS                ||
     (isAlchemy ? 100 : 2000)
   ),
   INITIAL_DELAY_MS: Number(
-    process.env.BTC_INITIAL_DELAY_MS || envConfig.BTC_INITIAL_DELAY_MS || 0
+    process.env.BTC_P2PKH_INITIAL_DELAY_MS || envConfig.BTC_P2PKH_INITIAL_DELAY_MS ||
+    process.env.BTC_INITIAL_DELAY_MS       || envConfig.BTC_INITIAL_DELAY_MS       ||
+    0
   ),
   MAX_REQ_24H: Number(
-    process.env.BTC_MAX_REQ_24H || envConfig.BTC_MAX_REQ_24H ||
-    process.env.MAX_REQ_24H     || envConfig.MAX_REQ_24H     ||
+    process.env.BTC_P2PKH_MAX_REQ_24H || envConfig.BTC_P2PKH_MAX_REQ_24H ||
+    process.env.BTC_MAX_REQ_24H       || envConfig.BTC_MAX_REQ_24H       ||
+    process.env.MAX_REQ_24H           || envConfig.MAX_REQ_24H           ||
     (isAlchemy ? 500000 : 30000)
   ),
   TIMEOUT_MS: Number(
-    process.env.BTC_TIMEOUT_MS || envConfig.BTC_TIMEOUT_MS ||
-    process.env.TIMEOUT_MS     || envConfig.TIMEOUT_MS     ||
+    process.env.BTC_P2PKH_TIMEOUT_MS || envConfig.BTC_P2PKH_TIMEOUT_MS ||
+    process.env.BTC_TIMEOUT_MS       || envConfig.BTC_TIMEOUT_MS       ||
+    process.env.TIMEOUT_MS           || envConfig.TIMEOUT_MS           ||
     (isAlchemy ? 10000 : 3000)
   ),
 };

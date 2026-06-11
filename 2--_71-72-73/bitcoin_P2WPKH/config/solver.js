@@ -240,7 +240,8 @@ export class BitcoinSolver {
           this._saveState();
 
           try {
-            const url  = `${baseUrl}/api/address/${addr}`;
+            const mempoolRoot = baseUrl.replace(/\/$/, '').replace(/\/api$/i, '');
+            const url  = `${mempoolRoot}/api/address/${addr}`;
             const resp = await globalLimiter.schedule(() => axios.get(url, {
               headers:        { 'User-Agent': 'ClawRafaelIA-Test/1.0', 'Connection': 'keep-alive' },
               timeout:        RUNTIME_CONFIG.TIMEOUT_MS,
