@@ -106,7 +106,12 @@ async function httpGet(url, timeoutMs, headers = {}) {
 async function fetchBlockcypher(provider, addresses, timeoutMs, schedule) {
   const root = provider.baseUrl.replace(/\/$/, '');
   const joined = addresses.join(';');
-  const resp = await schedule(() => httpGet(`${root}/${joined}/balance`, timeoutMs));
+  let resp;
+  try {
+    resp = await schedule(() => httpGet(`${root}/${joined}/balance`, timeoutMs));
+  } catch {
+    return { blocked: false, results: {}, rateLimited: false };
+  }
 
   if (isCloudflareBlocked(resp)) {
     return { blocked: true, results: {}, rateLimited: false };
@@ -144,7 +149,12 @@ async function fetchBlockcypher(provider, addresses, timeoutMs, schedule) {
 async function fetchAtomicwallet(_provider, addresses, timeoutMs, schedule) {
   const results = {};
   for (const addr of addresses) {
-    const resp = await schedule(() => httpGet(`${DOGE_DEFAULT_API_URL}/${addr}`, timeoutMs));
+    let resp;
+    try {
+      resp = await schedule(() => httpGet(`${DOGE_DEFAULT_API_URL}/${addr}`, timeoutMs));
+    } catch {
+      continue;
+    }
     if (resp.status === 404) {
       results[addr] = {
         balance: 0n, address: addr, nTx: 0,
@@ -164,11 +174,16 @@ async function fetchChainSo(provider, addresses, timeoutMs, schedule) {
   const headers = provider.apiKey ? { 'API-KEY': provider.apiKey } : {};
 
   for (const addr of addresses) {
-    const resp = await schedule(() => httpGet(
-      `${provider.baseUrl.replace(/\/$/, '')}/balance/DOGE/${addr}`,
-      timeoutMs,
-      headers,
-    ));
+    let resp;
+    try {
+      resp = await schedule(() => httpGet(
+        `${provider.baseUrl.replace(/\/$/, '')}/balance/DOGE/${addr}`,
+        timeoutMs,
+        headers,
+      ));
+    } catch {
+      continue;
+    }
     if (resp.status === 401 || resp.status === 429) {
       return { blocked: false, results: {}, rateLimited: resp.status === 429 };
     }

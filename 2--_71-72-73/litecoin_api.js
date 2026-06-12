@@ -133,12 +133,19 @@ async function fetchParallelSingle(
   const results = {};
   for (let offset = 0; offset < addresses.length; offset += concurrency) {
     const chunk = addresses.slice(offset, offset + concurrency);
-    const settled = await Promise.all(chunk.map(async (addr) => {
-      const resp = await fetchOne(addr);
-      return { addr, resp };
+    const settled = await Promise.allSettled(chunk.map(async (addr) => {
+      try {
+        const resp = await fetchOne(addr);
+        return { addr, resp };
+      } catch {
+        return { addr, resp: null };
+      }
     }));
 
-    for (const { addr, resp } of settled) {
+    for (const outcome of settled) {
+      if (outcome.status !== 'fulfilled') continue;
+      const { addr, resp } = outcome.value;
+      if (!resp) continue;
       if (resp.status === 429) {
         return { results, rateLimited: true };
       }
@@ -186,7 +193,12 @@ async function fetchAtomicwallet(_provider, addresses, timeoutMs) {
 async function fetchBlockcypher(provider, addresses, timeoutMs) {
   const root = provider.baseUrl.replace(/\/$/, '');
   const joined = addresses.join(';');
-  const resp = await httpGet(`${root}/${joined}/balance`, timeoutMs);
+  let resp;
+  try {
+    resp = await httpGet(`${root}/${joined}/balance`, timeoutMs);
+  } catch {
+    return { results: {}, rateLimited: false };
+  }
 
   if (isRateLimited(resp)) {
     return { results: {}, rateLimited: true };
