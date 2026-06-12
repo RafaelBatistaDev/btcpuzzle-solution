@@ -58,10 +58,11 @@ export const RUNTIME_CONFIG = {
   BATCH_SIZE: Number(process.env.SOL_BATCH_SIZE || envConfig.SOL_BATCH_SIZE || process.env.BATCH_SIZE || envConfig.BATCH_SIZE || 1),
   DELAY_MS: Number(process.env.SOL_DELAY_MS || envConfig.SOL_DELAY_MS || process.env.DELAY_MS || envConfig.DELAY_MS || 110),
   BATCH_DELAY_MS: Number(process.env.SOL_BATCH_DELAY_MS || envConfig.SOL_BATCH_DELAY_MS || 110),
-  INITIAL_DELAY_MS: Number(process.env.SOL_INITIAL_DELAY_MS || envConfig.SOL_INITIAL_DELAY_MS || 0),
+  INITIAL_DELAY_MS: Number(process.env.SOL_INITIAL_DELAY_MS || envConfig.SOL_INITIAL_DELAY_MS || 100),
   MAX_REQ_24H: Number(process.env.SOL_MAX_REQ_24H || envConfig.SOL_MAX_REQ_24H || process.env.MAX_REQ_24H || envConfig.MAX_REQ_24H || 30000),
   RPC_ENDPOINT: envConfig.SOL_RPC_ENDPOINT || process.env.SOL_RPC_ENDPOINT || 'https://mainnet.helius-rpc.com/?api-key=YOUR_HELIUS_API_KEY',
   TIMEOUT_MS: Number(process.env.SOL_TIMEOUT_MS || envConfig.SOL_TIMEOUT_MS || process.env.TIMEOUT_MS || envConfig.TIMEOUT_MS || 3000),
+  RPC_RETRY_MS: Number(process.env.SOL_RPC_RETRY_MS || envConfig.SOL_RPC_RETRY_MS || process.env.RPC_RETRY_MS || envConfig.RPC_RETRY_MS || 15000),
   SEARCH_MODE: envConfig.SOL_SEARCH_MODE || process.env.SOL_SEARCH_MODE || envConfig.SEARCH_MODE || process.env.SEARCH_MODE || 'sequential',
 };
 

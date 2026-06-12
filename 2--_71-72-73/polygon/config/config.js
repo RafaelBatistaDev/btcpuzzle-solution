@@ -28,6 +28,15 @@ function loadEnv() {
 
 const envConfig = loadEnv();
 
+function polygonRpcEndpoints() {
+  const candidates = [
+    envConfig.POLYGON_RPC_ENDPOINT || process.env.POLYGON_RPC_ENDPOINT,
+    envConfig.POLYGON_RPC_FALLBACK || process.env.POLYGON_RPC_FALLBACK,
+  ].filter((url) => url && typeof url === 'string' && !url.includes('YOUR_'));
+
+  return [...new Set(candidates)];
+}
+
 export const PUZZLE_CONFIG = {
   71: {
     name: 'POLYGON_PUZZLE_71',
@@ -58,9 +67,11 @@ export const RUNTIME_CONFIG = {
   DELAY_MS: Number(process.env.POLYGON_DELAY_MS || envConfig.POLYGON_DELAY_MS || process.env.DELAY_MS || envConfig.DELAY_MS || 300),
   INITIAL_DELAY_MS: Number(process.env.POLYGON_INITIAL_DELAY_MS || envConfig.POLYGON_INITIAL_DELAY_MS || 100),
   MAX_REQ_24H: Number(process.env.POLYGON_MAX_REQ_24H || envConfig.POLYGON_MAX_REQ_24H || process.env.MAX_REQ_24H || envConfig.MAX_REQ_24H || 10000),
-  RPC_ENDPOINT: envConfig.POLYGON_RPC_ENDPOINT || process.env.POLYGON_RPC_ENDPOINT || 'https://rpc.ankr.com/polygon/YOUR_API_KEY',
+  RPC_ENDPOINTS: polygonRpcEndpoints(),
+  RPC_ENDPOINT: polygonRpcEndpoints()[0] || envConfig.POLYGON_RPC_ENDPOINT || process.env.POLYGON_RPC_ENDPOINT || 'https://polygon-bor-rpc.publicnode.com',
   ETHERSCAN_KEY: envConfig.POLYGON_API_KEY || process.env.POLYGON_API_KEY || 'YOUR_API_KEY',
-  TIMEOUT_MS: Number(process.env.POLYGON_TIMEOUT_MS || envConfig.POLYGON_TIMEOUT_MS || process.env.TIMEOUT_MS || envConfig.TIMEOUT_MS || 5000),
+  TIMEOUT_MS: Number(process.env.POLYGON_TIMEOUT_MS || envConfig.POLYGON_TIMEOUT_MS || process.env.TIMEOUT_MS || envConfig.TIMEOUT_MS || 15000),
+  RPC_RETRY_MS: Number(process.env.POLYGON_RPC_RETRY_MS || envConfig.POLYGON_RPC_RETRY_MS || 15000),
   SEARCH_MODE: 'sequential',
 };
 

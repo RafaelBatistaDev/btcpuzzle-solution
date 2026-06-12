@@ -87,6 +87,11 @@ export const RUNTIME_CONFIG = {
     process.env.TIMEOUT_MS           || envConfig.TIMEOUT_MS           ||
     3000
   ),
+  RPC_RETRY_MS: Number(
+    process.env.LTC_P2PKH_RPC_RETRY_MS || envConfig.LTC_P2PKH_RPC_RETRY_MS ||
+    process.env.LTC_RPC_RETRY_MS       || envConfig.LTC_RPC_RETRY_MS       ||
+    process.env.RPC_RETRY_MS           || envConfig.RPC_RETRY_MS           || 15000
+  ),
 };
 
 export const ACTIVE_PUZZLES = Object.keys(PUZZLE_CONFIG).map(Number);

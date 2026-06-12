@@ -95,6 +95,11 @@ export const RUNTIME_CONFIG = {
     process.env.TIMEOUT_MS           || envConfig.TIMEOUT_MS           ||
     (isAlchemy ? 10000 : 3000)
   ),
+  RPC_RETRY_MS: Number(
+    process.env.BTC_P2PKH_RPC_RETRY_MS || envConfig.BTC_P2PKH_RPC_RETRY_MS ||
+    process.env.BTC_RPC_RETRY_MS       || envConfig.BTC_RPC_RETRY_MS       ||
+    process.env.RPC_RETRY_MS           || envConfig.RPC_RETRY_MS           || 15000
+  ),
 };
 
 // Todos os 3 puzzles sempre ativos

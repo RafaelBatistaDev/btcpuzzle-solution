@@ -8,14 +8,14 @@ Este guia ensina a preparar o ambiente, configurar credenciais, iniciar os solve
 
 | Operação | Script | Objetivo |
 | :--- | :--- | :--- |
-| **Instalar dependências** | `./setup_toolbox.sh` | Node.js, NPM, Python e bibliotecas |
+| **Instalar dependências** | `chmod +x *.sh *.py && ./setup_toolbox.sh` | Node.js, NPM, Python e bibliotecas |
 | **Orquestrador Bitcoin** | `./orchestrator_bitcoin.sh` | Puzzles 71→72→73 só em Bitcoin |
 | **Orquestrador LTC+DOGE** | `./orchestrator_ltc_doge.sh` | Puzzles 71→72→73 em Litecoin e Dogecoin |
 | **Orquestrador EVM** | `./orchestrator_evm.sh` | Puzzles 71→72→73 em ETH, Polygon, BNB e Solana |
-| **Puzzle 71 (todas redes)** | `./start_puzzle71_all.sh` | Abre 3 terminais e roda P71 em paralelo |
-| **Puzzle 72 (todas redes)** | `./start_puzzle72_all.sh` | Abre 3 terminais e roda P72 em paralelo |
-| **Puzzle 73 (todas redes)** | `./start_puzzle73_all.sh` | Abre 3 terminais e roda P73 em paralelo |
-| **Verificar tudo** | `uv run check_all_networks.py` | Auditoria consolidada |
+| **Puzzle 71 (todas redes)** | `chmod +x *.sh *.py *.js  && ./start_puzzle71_all.sh` | Abre 3 terminais e roda P71 em paralelo |
+| **Puzzle 72 (todas redes)** | `chmod +x *.sh *.py && ./start_puzzle72_all.sh` | Abre 3 terminais e roda P72 em paralelo |
+| **Puzzle 73 (todas redes)** | `chmod +x *.sh *.py && ./start_puzzle73_all.sh` | Abre 3 terminais e roda P73 em paralelo |
+| **Verificar tudo** | `chmod +x *.sh *.py && uv run check_all_networks.py` | Auditoria consolidada |
 
 ### Tabela de Iniciar / Parar
 

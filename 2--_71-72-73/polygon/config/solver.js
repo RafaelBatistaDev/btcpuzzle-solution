@@ -8,6 +8,13 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine } from './utils.js';
 import { PUZZLE_CONFIG, RUNTIME_CONFIG } from './config.js';
+import {
+  handleBatchRpcFailure,
+  getEvmResult,
+  logBatchItemErrors,
+  rpcHost,
+  isTransientRpcMessage,
+} from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,17 +25,18 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class PolygonSolver {
   constructor(puzzleId) {
-    // 🔐 VALIDAÇÃO CRÍTICA: Garantir que está usando RPC de POLYGON (não Ethereum!)
-    if (!RUNTIME_CONFIG.RPC_ENDPOINT || typeof RUNTIME_CONFIG.RPC_ENDPOINT !== 'string') {
-      throw new Error('❌ [POLYGON] RPC_ENDPOINT não está configurado!');
+    this.rpcEndpoints = (RUNTIME_CONFIG.RPC_ENDPOINTS?.length
+      ? RUNTIME_CONFIG.RPC_ENDPOINTS
+      : [RUNTIME_CONFIG.RPC_ENDPOINT]).filter((url) => url && !url.includes('YOUR_'));
+
+    if (this.rpcEndpoints.length === 0) {
+      throw new Error('❌ [POLYGON] Nenhum RPC_ENDPOINT configurado!');
     }
-    if (RUNTIME_CONFIG.RPC_ENDPOINT.includes('YOUR_') || RUNTIME_CONFIG.RPC_ENDPOINT === '') {
-      throw new Error(`❌ [POLYGON] RPC_ENDPOINT contém placeholder ou está vazio: "${RUNTIME_CONFIG.RPC_ENDPOINT}"`);
-    }
-    console.log(`\n✅ [POLYGON] RPC Validada: ${RUNTIME_CONFIG.RPC_ENDPOINT.substring(0, 50)}...\n`);
-    
+
+    this.rpcIndex = 0;
     this.puzzleId = puzzleId;
-    this.provider = 'drpc';
+    this.provider = rpcHost(this.rpcEndpoints[0]);
+    console.log(`\n✅ [POLYGON] RPCs: ${this.rpcEndpoints.map((u) => rpcHost(u)).join(' → ')}\n`);
     this.config = PUZZLE_CONFIG[puzzleId];
     this.rangeMin = BigInt(this.config.rangeMin);
     this.rangeMax = BigInt(this.config.rangeMax);
@@ -123,6 +131,17 @@ export class PolygonSolver {
     fs.appendFileSync(this.logFile, line + '\n');
   }
 
+  _activeRpcUrl() {
+    return this.rpcEndpoints[this.rpcIndex % this.rpcEndpoints.length];
+  }
+
+  _rotateRpc() {
+    if (this.rpcEndpoints.length <= 1) return;
+    this.rpcIndex = (this.rpcIndex + 1) % this.rpcEndpoints.length;
+    this.provider = rpcHost(this._activeRpcUrl());
+    this.log(`🔄 Alternando RPC → ${this.provider}`);
+  }
+
   /**
    * Verifica o limite diário de requisições e aguarda se atingido
    */
@@ -171,19 +190,18 @@ export class PolygonSolver {
   async queryRPC(addresses) {
     await this.checkRateLimit();
 
-    // 🕐 ESCALONAMENTO TEMPORAL: Aguarda delay inicial para não cruzar com outros solvers
     if (RUNTIME_CONFIG.INITIAL_DELAY_MS > 0) {
       this.log(`⏰ Aguardando ${RUNTIME_CONFIG.INITIAL_DELAY_MS}ms (turnista Polygon)...`);
       await sleep(RUNTIME_CONFIG.INITIAL_DELAY_MS);
     }
 
-    const result = {};
-    const url = RUNTIME_CONFIG.RPC_ENDPOINT;
+    if (addresses.length === 0) return {};
 
-    if (addresses.length === 0) return result;
+    const url = this._activeRpcUrl();
+    const result = {};
 
     try {
-      this.log(`📡 Consultando lote de ${addresses.length} endereços via Polygon RPC Batch...`);
+      this.log(`📡 Consultando lote de ${addresses.length} endereços via ${this.provider}...`);
       this.state.dailyRequests.count++;
       this._saveState();
 
@@ -194,64 +212,65 @@ export class PolygonSolver {
         id: index + 1
       }));
 
-      try {
-        const resp = await axios.post(url, payloads, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'Puzzle-Solver-Client/1.0',
-            'Connection': 'keep-alive'
-          },
-          timeout: RUNTIME_CONFIG.TIMEOUT_MS,
-          validateStatus: () => true
-        });
+      const resp = await axios.post(url, payloads, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'Puzzle-Solver-Client/1.0',
+          'Connection': 'keep-alive'
+        },
+        timeout: RUNTIME_CONFIG.TIMEOUT_MS,
+        validateStatus: () => true
+      });
 
-        if (resp.status === 429) {
-          this.log(`⚠️ [429 GLOBAL] Polygon RPC Rate limit atingido. Aguardando 5s...`);
-          await sleep(5000);
-          return await this.queryRPC(addresses);
-        }
+      if (resp.status === 429 || isTransientRpcMessage(JSON.stringify(resp.data || ''))) {
+        this.log(`⚠️ [${this.provider}] Rate limit / bloqueio temporário (HTTP ${resp.status}). Alternando RPC...`);
+        this._rotateRpc();
+        await sleep(RUNTIME_CONFIG.RPC_RETRY_MS);
+        return await this.queryRPC(addresses);
+      }
 
-        if (resp.status === 200 && Array.isArray(resp.data)) {
-          resp.data.forEach((responseItem, idx) => {
-            const addr = addresses[idx];
-            if (responseItem.result) {
-              const saldoWei = BigInt(responseItem.result);
-              const checksumAddr = CryptoEngine.toChecksumAddress(addr);
-              result[checksumAddr] = {
-                balance: saldoWei,
-                address: checksumAddr
-              };
-            } else if (responseItem.error) {
-              this.log(`⚠️ Erro no item ${addr}: ${responseItem.error.message}`);
-            }
-          });
-        } else if (resp.status === 200 && resp.data && !Array.isArray(resp.data)) {
-          this.log(`⚠️ Resposta do RPC não é um array: ${JSON.stringify(resp.data)}`);
-          if (resp.data.result) {
-            const addr = addresses[0];
-            const saldoWei = BigInt(resp.data.result);
+      if (resp.status === 200 && Array.isArray(resp.data)) {
+        let itemErrors = 0;
+        let firstError = '';
+
+        resp.data.forEach((responseItem, idx) => {
+          const addr = addresses[idx];
+          if (responseItem?.result) {
+            const saldoWei = BigInt(responseItem.result);
             const checksumAddr = CryptoEngine.toChecksumAddress(addr);
             result[checksumAddr] = {
               balance: saldoWei,
               address: checksumAddr
             };
+          } else if (responseItem?.error) {
+            itemErrors++;
+            if (!firstError) firstError = responseItem.error.message || 'erro RPC';
           }
-        } else {
-          this.log(`⚠️ Retorno inesperado Polygon RPC: Status ${resp.status}`);
-          await sleep(3000);
-          return await this.queryRPC(addresses);
+        });
+
+        logBatchItemErrors((msg) => this.log(msg), this.provider, itemErrors, addresses.length, firstError);
+        if (itemErrors === addresses.length) {
+          this._rotateRpc();
         }
-      } catch (err) {
-        this.log(`⚠️ Erro ao enviar lote Polygon RPC: ${err.message}. Retentando em 5s...`);
-        await sleep(5000);
+      } else if (resp.status === 200 && resp.data?.result) {
+        const addr = addresses[0];
+        const saldoWei = BigInt(resp.data.result);
+        const checksumAddr = CryptoEngine.toChecksumAddress(addr);
+        result[checksumAddr] = { balance: saldoWei, address: checksumAddr };
+      } else {
+        this.log(`⚠️ [${this.provider}] Resposta inesperada (HTTP ${resp.status})`);
+        this._rotateRpc();
+        await sleep(RUNTIME_CONFIG.RPC_RETRY_MS);
         return await this.queryRPC(addresses);
       }
 
       return result;
     } catch (err) {
-      this.log(`⚠️ Erro ao consultar RPC: ${err.message}`);
-      return {};
+      this.log(`⚠️ [${this.provider}] Erro no lote: ${err.message}. Alternando RPC...`);
+      this._rotateRpc();
+      await sleep(RUNTIME_CONFIG.RPC_RETRY_MS);
+      return await this.queryRPC(addresses);
     }
   }
 
@@ -265,10 +284,19 @@ export class PolygonSolver {
     this.log(`📡 Consultando ${this.batch.length} endereços...`);
 
     const results = await this.queryRPC(addresses);
+    const getInfo = (item) => getEvmResult(results, item, (a) => CryptoEngine.toChecksumAddress(a));
+
+    if (await handleBatchRpcFailure(this, this.batch, results, {
+      hasResult: (item) => Boolean(getInfo(item)),
+      retryMs: RUNTIME_CONFIG.RPC_RETRY_MS,
+    })) {
+      this.batch = [];
+      return;
+    }
 
     const historyFile = path.join(this.resultsDir, 'batch_history.jsonl');
     for (const item of this.batch) {
-      const info = results[item.addr] || { balance: 0n };
+      const info = getInfo(item);
       const privHexPadded = item.privHex.padStart(64, '0');
       const record = {
         timestamp:       new Date().toISOString(),

@@ -92,6 +92,10 @@ export const RUNTIME_CONFIG = {
     process.env.ETH_TIMEOUT_MS || envConfig.ETH_TIMEOUT_MS ||
     process.env.TIMEOUT_MS     || envConfig.TIMEOUT_MS     || 10000
   ),
+  RPC_RETRY_MS: Number(
+    process.env.ETH_RPC_RETRY_MS || envConfig.ETH_RPC_RETRY_MS ||
+    process.env.RPC_RETRY_MS     || envConfig.RPC_RETRY_MS     || 15000
+  ),
 };
 
 // Todos os 3 puzzles sempre ativos

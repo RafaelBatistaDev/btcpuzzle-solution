@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { CryptoEngine }                          from './utils.js';
 import { queryLitecoinBalances, LTC_DEFAULT_API_URL } from '../../litecoin_api.js';
 import { PUZZLE_CONFIG, RUNTIME_CONFIG, ACTIVE_PUZZLES } from './config.js';
+import { handleBatchRpcFailure } from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -184,10 +185,18 @@ export class LitecoinSolver {
 
     const addresses   = this.batch.map(b => b.addr);
     const results     = await this.queryRPC(addresses);
+
+    if (await handleBatchRpcFailure(this, this.batch, results, {
+      retryMs: RUNTIME_CONFIG.RPC_RETRY_MS || 15000,
+    })) {
+      this.batch = [];
+      return;
+    }
+
     const historyFile = path.join(this.resultsDir, 'batch_history.jsonl');
 
     for (const item of this.batch) {
-      const info       = results[item.addr] || { balance: 0n, nTx: 0, totalReceived: 0, totalSent: 0, provider: 'unknown' };
+      const info       = results[item.addr];
       const balanceNum = Number(info.balance);
 
       const record = {

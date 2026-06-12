@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine } from './utils.js';
 import { PUZZLE_CONFIG, RUNTIME_CONFIG } from './config.js';
+import { handleBatchRpcFailure, logBatchItemErrors, getEvmResult } from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -274,12 +275,19 @@ export class EthereumSolver {
           }
 
           if (resp.status === 200 && Array.isArray(resp.data)) {
+            let itemErrors = 0;
+            let firstError = '';
             resp.data.forEach((res, index) => {
               const addr = addresses[index];
-              const checksumAddr = CryptoEngine.toChecksumAddress(addr);
-              const balance = res.result ? BigInt(res.result) : 0n;
-              result[checksumAddr] = { balance, address: checksumAddr };
+              if (res.result) {
+                const checksumAddr = CryptoEngine.toChecksumAddress(addr);
+                result[checksumAddr] = { balance: BigInt(res.result), address: checksumAddr };
+              } else if (res.error) {
+                itemErrors++;
+                if (!firstError) firstError = res.error.message || 'erro RPC';
+              }
             });
+            logBatchItemErrors((msg) => this.log(msg), apiLabel, itemErrors, addresses.length, firstError);
           } else {
             this.log(`⚠️ [${apiLabel}] Erro HTTP ${resp.status}. Retentando em 5s...`);
             await sleep(5000);
@@ -308,10 +316,19 @@ export class EthereumSolver {
     this.log(`📡 Consultando ${this.batch.length} endereços...`);
 
     const results = await this.queryRPC(addresses);
+    const getInfo = (item) => getEvmResult(results, item, (a) => CryptoEngine.toChecksumAddress(a));
+
+    if (await handleBatchRpcFailure(this, this.batch, results, {
+      hasResult: (item) => Boolean(getInfo(item)),
+      retryMs: RUNTIME_CONFIG.RPC_RETRY_MS || 15000,
+    })) {
+      this.batch = [];
+      return;
+    }
 
     const historyFile = path.join(this.resultsDir, 'batch_history.jsonl');
     for (const item of this.batch) {
-      const info = results[item.addr] || { balance: 0n };
+      const info = getInfo(item);
       const privHexPadded = item.privHex.padStart(64, '0');
       const record = {
         timestamp:       new Date().toISOString(),

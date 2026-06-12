@@ -28,6 +28,16 @@ function loadEnv() {
 
 const envConfig = loadEnv();
 
+function bnbRpcEndpoints() {
+  const candidates = [
+    envConfig.BNB_RPC_ENDPOINT || process.env.BNB_RPC_ENDPOINT,
+    envConfig.BNB_RPC_FALLBACK || process.env.BNB_RPC_FALLBACK,
+    'https://bsc-dataseed1.binance.org',
+  ].filter((url) => url && typeof url === 'string' && !url.includes('YOUR_'));
+
+  return [...new Set(candidates)];
+}
+
 export const PUZZLE_CONFIG = {
   71: {
     name: 'BNB_PUZZLE_71',
@@ -57,11 +67,12 @@ export const RUNTIME_CONFIG = {
   DELAY_MS: Number(process.env.BNB_DELAY_MS || envConfig.BNB_DELAY_MS || process.env.DELAY_MS || envConfig.DELAY_MS || 200),
   INITIAL_DELAY_MS: Number(process.env.BNB_INITIAL_DELAY_MS || envConfig.BNB_INITIAL_DELAY_MS || 100),
   MAX_REQ_24H: Number(process.env.BNB_MAX_REQ_24H || envConfig.BNB_MAX_REQ_24H || process.env.MAX_REQ_24H || envConfig.MAX_REQ_24H || 100000),
-  // RPC Endpoint: BNB
-  RPC_ENDPOINT: process.env.BNB_RPC_ENDPOINT || envConfig.BNB_RPC_ENDPOINT || 'https://bsc-dataseed.binance.org',
+  RPC_ENDPOINTS: bnbRpcEndpoints(),
+  RPC_ENDPOINT: bnbRpcEndpoints()[0] || process.env.BNB_RPC_ENDPOINT || envConfig.BNB_RPC_ENDPOINT || 'https://bsc-dataseed.binance.org',
   // BscScan API Key (centralizado)
   ETHERSCAN_KEY: process.env.BSCSCAN_KEY || envConfig.BSCSCAN_KEY || 'YourApiKeyToken',
   TIMEOUT_MS: Number(process.env.BNB_TIMEOUT_MS || envConfig.BNB_TIMEOUT_MS || process.env.TIMEOUT_MS || envConfig.TIMEOUT_MS || 10000),
+  RPC_RETRY_MS: Number(process.env.BNB_RPC_RETRY_MS || envConfig.BNB_RPC_RETRY_MS || process.env.RPC_RETRY_MS || envConfig.RPC_RETRY_MS || 15000),
   // MODO SEQUENCIAL: Único modo de busca disponível
   SEARCH_MODE: 'sequential',
 };

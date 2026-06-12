@@ -142,7 +142,7 @@ async function fetchParallelSingle(
       if (resp.status === 429) {
         return { results, rateLimited: true };
       }
-      if (resp.status === 404 || (resp.status !== 200 && resp.status !== 429)) {
+      if (resp.status === 404) {
         results[addr] = {
           balance: 0n, address: addr, nTx: 0,
           totalReceived: 0, totalSent: 0, provider: providerName,
@@ -153,11 +153,6 @@ async function fetchParallelSingle(
       const entry = resp.entry;
       if (entry) {
         results[addr] = entry;
-      } else {
-        results[addr] = {
-          balance: 0n, address: addr, nTx: 0,
-          totalReceived: 0, totalSent: 0, provider: providerName,
-        };
       }
     }
 
@@ -296,17 +291,9 @@ export async function queryLitecoinBalances({
     pending = addresses.filter((addr) => !final[addr]);
   }
 
-  for (const addr of addresses) {
-    if (!final[addr]) {
-      final[addr] = {
-        balance: 0n,
-        address: addr,
-        nTx: 0,
-        totalReceived: 0,
-        totalSent: 0,
-        provider: 'unknown',
-      };
-    }
+  const unresolved = addresses.filter((addr) => !final[addr]);
+  if (unresolved.length > 0) {
+    onLog(`⚠️ [Litecoin] ${unresolved.length}/${addresses.length} endereços sem resposta após todos os provedores`);
   }
 
   return final;

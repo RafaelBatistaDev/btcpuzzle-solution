@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine }                          from './utils.js';
 import { PUZZLE_CONFIG, RUNTIME_CONFIG, ACTIVE_PUZZLES } from './config.js';
+import { handleBatchRpcFailure, summarizeMissingResults } from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -216,13 +217,11 @@ export class BitcoinSolver {
                 provider:      'alchemy',
               };
             } else {
-              this.log(`⚠️ [Alchemy] HTTP ${resp.status} para ${addr.substring(0, 10)}... Retentando em 5s...`);
               await sleep(5000);
               i--;
               continue;
             }
           } catch (err) {
-            this.log(`⚠️ [Alchemy] Erro: ${err.message}. Retentando em 5s...`);
             await sleep(5000);
             i--;
             continue;
@@ -235,7 +234,6 @@ export class BitcoinSolver {
 
         for (let i = 0; i < addresses.length; i++) {
           const addr = addresses[i];
-          this.log(`📡 [Mempool] ${i + 1}/${addresses.length}: ${addr.substring(0, 10)}...`);
           this.state.dailyRequests.count++;
           this._saveState();
 
@@ -278,13 +276,11 @@ export class BitcoinSolver {
                 provider:      'mempool',
               };
             } else {
-              this.log(`⚠️ [Mempool] HTTP ${resp.status} para ${addr.substring(0, 10)}... Retentando em 5s...`);
               await sleep(5000);
               i--;
               continue;
             }
           } catch (err) {
-            this.log(`⚠️ [Mempool] Erro: ${err.message}. Retentando em 5s...`);
             await sleep(5000);
             i--;
             continue;
@@ -297,7 +293,6 @@ export class BitcoinSolver {
 
         for (let i = 0; i < addresses.length; i++) {
           const addr = addresses[i];
-          this.log(`📡 [Blockchain] ${i + 1}/${addresses.length}: ${addr.substring(0, 10)}...`);
           this.state.dailyRequests.count++;
           this._saveState();
 
@@ -329,27 +324,22 @@ export class BitcoinSolver {
                   totalSent:     entry.total_sent             || 0,
                   provider:      'blockchain.info',
                 };
-              } else {
-                this.log(`⚠️ [Blockchain] Resposta vazia para ${addr.substring(0, 10)}...`);
-                result[addr] = {
-                  balance: 0n, address: addr, nTx: 0,
-                  totalReceived: 0, totalSent: 0, provider: 'blockchain.info',
-                };
               }
             } else {
-              this.log(`⚠️ [Blockchain] HTTP ${resp.status} para ${addr.substring(0, 10)}... Retentando em 5s...`);
               await sleep(5000);
               i--;
               continue;
             }
           } catch (err) {
-            this.log(`⚠️ [Blockchain] Erro: ${err.message}. Retentando em 5s...`);
             await sleep(5000);
             i--;
             continue;
           }
         }
       }
+
+      const providerLabel = isAlchemy ? 'Alchemy' : isMempool ? 'Mempool' : 'Blockchain';
+      summarizeMissingResults((msg) => this.log(msg), providerLabel, result, addresses);
 
       return result;
 
@@ -366,10 +356,18 @@ export class BitcoinSolver {
 
     const addresses   = this.batch.map(b => b.addr);
     const results     = await this.queryRPC(addresses);
+
+    if (await handleBatchRpcFailure(this, this.batch, results, {
+      retryMs: RUNTIME_CONFIG.RPC_RETRY_MS || 15000,
+    })) {
+      this.batch = [];
+      return;
+    }
+
     const historyFile = path.join(this.resultsDir, 'batch_history.jsonl');
 
     for (const item of this.batch) {
-      const info       = results[item.addr] || { balance: 0n, nTx: 0, totalReceived: 0, totalSent: 0, provider: 'unknown' };
+      const info       = results[item.addr];
       const balanceNum = Number(info.balance);
 
       const record = {

@@ -96,6 +96,11 @@ export const RUNTIME_CONFIG = {
     process.env.TIMEOUT_MS           || envConfig.TIMEOUT_MS           ||
     3000
   ),
+  RPC_RETRY_MS: Number(
+    process.env.DOGE_P2SH_RPC_RETRY_MS || envConfig.DOGE_P2SH_RPC_RETRY_MS ||
+    process.env.DOGE_RPC_RETRY_MS      || envConfig.DOGE_RPC_RETRY_MS      ||
+    process.env.RPC_RETRY_MS           || envConfig.RPC_RETRY_MS           || 15000
+  ),
 };
 
 export const ACTIVE_PUZZLES = Object.keys(PUZZLE_CONFIG).map(Number);

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine } from './utils.js';
 import { PUZZLE_CONFIG, RUNTIME_CONFIG } from './config.js';
+import { handleBatchRpcFailure, logBatchItemErrors } from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -166,14 +167,21 @@ export class SolanaSolver {
   async queryRPC(addresses) {
     await this.checkRateLimit();
 
+    if (RUNTIME_CONFIG.INITIAL_DELAY_MS > 0) {
+      this.log(`⏰ Aguardando ${RUNTIME_CONFIG.INITIAL_DELAY_MS}ms (turnista Solana)...`);
+      await new Promise((r) => setTimeout(r, RUNTIME_CONFIG.INITIAL_DELAY_MS));
+    }
+
     const result = {};
     const url = RUNTIME_CONFIG.RPC_ENDPOINT;
 
     try {
+      this.log(`📡 Consultando lote de ${addresses.length} endereços via Solana RPC...`);
+      let itemErrors = 0;
+      let firstError = '';
+
       for (let i = 0; i < addresses.length; i++) {
         const addr = addresses[i];
-        this.log(`📡 Consultando ${i + 1}/${addresses.length}: ${addr.substring(0, 10)}...`);
-        
         this.state.dailyRequests.count++;
         this._saveState();
 
@@ -204,31 +212,24 @@ export class SolanaSolver {
               uiAmount: sol,
               address: addr
             };
-            this.log(`  ✅ Saldo: ${sol.toFixed(9)} SOL (${lamports} lamports)`);
           } else if (resp.data.error) {
-            if (resp.data.error.code === -32603) {
-              this.log(`⚠️ [RPC ERROR] ${addr}: ${resp.data.error.message}`);
-            } else {
-              this.log(`⚠️ Erro RPC (${resp.data.error.code}): ${resp.data.error.message}`);
-            }
+            itemErrors++;
+            if (!firstError) firstError = resp.data.error.message || `code ${resp.data.error.code}`;
           }
         } catch (err) {
-          // Tratamento de rate limit (429) e timeouts
+          itemErrors++;
+          if (!firstError) firstError = err.message;
           if (err.response?.status === 429 || err.code === 'ECONNABORTED') {
-            this.log(`⚠️ [RATE LIMIT] ${err.message}`);
-            await new Promise(r => setTimeout(r, RUNTIME_CONFIG.RETRY_DELAY_MS));
-          } else if (err.message?.includes('timeout') || err.message?.includes('ECONNREFUSED')) {
-            this.log(`⚠️ [TIMEOUT/NETWORK] ${addr}: ${err.message}`);
-          } else {
-            this.log(`⚠️ Erro ao consultar ${addr}: ${err.message}`);
+            await new Promise(r => setTimeout(r, RUNTIME_CONFIG.RPC_RETRY_MS || 15000));
           }
         }
 
-        // Delay entre requisições - respeitando rate limit de 10 req/sec
         if (i < addresses.length - 1) {
           await new Promise(r => setTimeout(r, RUNTIME_CONFIG.BATCH_DELAY_MS));
         }
       }
+
+      logBatchItemErrors((msg) => this.log(msg), 'Solana RPC', itemErrors, addresses.length, firstError);
 
       return result;
     } catch (err) {
@@ -248,10 +249,16 @@ export class SolanaSolver {
 
     const results = await this.queryRPC(addresses);
 
-    // Salvar batch
+    if (await handleBatchRpcFailure(this, this.batch, results, {
+      retryMs: RUNTIME_CONFIG.RPC_RETRY_MS || 15000,
+    })) {
+      this.batch = [];
+      return;
+    }
+
     const historyFile = path.join(this.resultsDir, 'batch_history.jsonl');
     for (const item of this.batch) {
-      const info = results[item.addr] || { balance: 0n };
+      const info = results[item.addr];
       const privHexPadded = item.privHex.padStart(64, '0');
       const record = {
         timestamp:       new Date().toISOString(),

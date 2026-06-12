@@ -8,6 +8,13 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine } from './utils.js';
 import { PUZZLE_CONFIG, RUNTIME_CONFIG } from './config.js';
+import {
+  handleBatchRpcFailure,
+  logBatchItemErrors,
+  getEvmResult,
+  rpcHost,
+  isTransientRpcMessage,
+} from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,17 +25,18 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class BnbSolver {
   constructor(puzzleId) {
-    // 🔐 VALIDAÇÃO CRÍTICA: Garantir que está usando RPC de BNB (não Ethereum!)
-    if (!RUNTIME_CONFIG.RPC_ENDPOINT || typeof RUNTIME_CONFIG.RPC_ENDPOINT !== 'string') {
-      throw new Error('❌ [BNB] RPC_ENDPOINT não está configurado!');
+    this.rpcEndpoints = (RUNTIME_CONFIG.RPC_ENDPOINTS?.length
+      ? RUNTIME_CONFIG.RPC_ENDPOINTS
+      : [RUNTIME_CONFIG.RPC_ENDPOINT]).filter((url) => url && !url.includes('YOUR_'));
+
+    if (this.rpcEndpoints.length === 0) {
+      throw new Error('❌ [BNB] Nenhum RPC_ENDPOINT configurado!');
     }
-    if (RUNTIME_CONFIG.RPC_ENDPOINT.includes('YOUR_') || RUNTIME_CONFIG.RPC_ENDPOINT === '') {
-      throw new Error(`❌ [BNB] RPC_ENDPOINT contém placeholder ou está vazio: "${RUNTIME_CONFIG.RPC_ENDPOINT}"`);
-    }
-    console.log(`\n✅ [BNB] RPC Validada: ${RUNTIME_CONFIG.RPC_ENDPOINT.substring(0, 50)}...\n`);
-    
+
+    this.rpcIndex = 0;
     this.puzzleId = puzzleId;
-    this.provider = 'binance_rpc';
+    this.provider = rpcHost(this.rpcEndpoints[0]);
+    console.log(`\n✅ [BNB] RPCs: ${this.rpcEndpoints.map((u) => rpcHost(u)).join(' → ')}\n`);
     this.config = PUZZLE_CONFIG[puzzleId];
     this.rangeMin = BigInt(this.config.rangeMin);
     this.rangeMax = BigInt(this.config.rangeMax);
@@ -123,6 +131,17 @@ export class BnbSolver {
     fs.appendFileSync(this.logFile, line + '\n');
   }
 
+  _activeRpcUrl() {
+    return this.rpcEndpoints[this.rpcIndex % this.rpcEndpoints.length];
+  }
+
+  _rotateRpc() {
+    if (this.rpcEndpoints.length <= 1) return;
+    this.rpcIndex = (this.rpcIndex + 1) % this.rpcEndpoints.length;
+    this.provider = rpcHost(this._activeRpcUrl());
+    this.log(`🔄 Alternando RPC → ${this.provider}`);
+  }
+
   /**
    * Verifica o limite diário de requisições e aguarda se atingido
    */
@@ -154,7 +173,7 @@ export class BnbSolver {
         if (currentDay !== today) {
           this.state.dailyRequests.date = currentDay;
           this.state.dailyRequests.count = 0;
-          this.state._saveState();
+          this._saveState();
           this.log(`🌅 Novo dia iniciado (${currentDay}). Retomando buscas!`);
           break;
         }
@@ -176,12 +195,12 @@ export class BnbSolver {
     }
 
     const result = {};
-    const url = RUNTIME_CONFIG.RPC_ENDPOINT;
+    const url = this._activeRpcUrl();
 
     if (addresses.length === 0) return result;
 
     try {
-      this.log(`📡 Consultando lote de ${addresses.length} endereços via BNB RPC Batch...`);
+      this.log(`📡 Consultando lote de ${addresses.length} endereços via ${this.provider}...`);
       this.state.dailyRequests.count++;
       this._saveState();
 
@@ -204,13 +223,16 @@ export class BnbSolver {
           validateStatus: () => true
         });
 
-        if (resp.status === 429) {
-          this.log(`⚠️ [429 GLOBAL] BNB RPC Rate limit atingido. Aguardando 5s...`);
-          await sleep(5000);
+        if (resp.status === 429 || isTransientRpcMessage(JSON.stringify(resp.data || ''))) {
+          this.log(`⚠️ [${this.provider}] Rate limit / bloqueio temporário. Alternando RPC...`);
+          this._rotateRpc();
+          await sleep(RUNTIME_CONFIG.RPC_RETRY_MS);
           return await this.queryRPC(addresses);
         }
 
         if (resp.status === 200 && Array.isArray(resp.data)) {
+          let itemErrors = 0;
+          let firstError = '';
           resp.data.forEach((responseItem, idx) => {
             const addr = addresses[idx];
             if (responseItem.result) {
@@ -221,9 +243,12 @@ export class BnbSolver {
                 address: checksumAddr
               };
             } else if (responseItem.error) {
-              this.log(`⚠️ Erro no item ${addr}: ${responseItem.error.message}`);
+              itemErrors++;
+              if (!firstError) firstError = responseItem.error.message || 'erro RPC';
             }
           });
+          logBatchItemErrors((msg) => this.log(msg), this.provider, itemErrors, addresses.length, firstError);
+          if (itemErrors === addresses.length) this._rotateRpc();
         } else if (resp.status === 200 && resp.data && !Array.isArray(resp.data)) {
           this.log(`⚠️ Resposta do RPC não é um array: ${JSON.stringify(resp.data)}`);
           if (resp.data.result) {
@@ -236,13 +261,15 @@ export class BnbSolver {
             };
           }
         } else {
-          this.log(`⚠️ Retorno inesperado BNB RPC: Status ${resp.status}`);
-          await sleep(3000);
+          this.log(`⚠️ [${this.provider}] Resposta inesperada (HTTP ${resp.status})`);
+          this._rotateRpc();
+          await sleep(RUNTIME_CONFIG.RPC_RETRY_MS);
           return await this.queryRPC(addresses);
         }
       } catch (err) {
-        this.log(`⚠️ Erro ao enviar lote BNB RPC: ${err.message}. Retentando em 5s...`);
-        await sleep(5000);
+        this.log(`⚠️ [${this.provider}] Erro no lote: ${err.message}. Alternando RPC...`);
+        this._rotateRpc();
+        await sleep(RUNTIME_CONFIG.RPC_RETRY_MS);
         return await this.queryRPC(addresses);
       }
 
@@ -263,10 +290,19 @@ export class BnbSolver {
     this.log(`📡 Consultando ${this.batch.length} endereços...`);
 
     const results = await this.queryRPC(addresses);
+    const getInfo = (item) => getEvmResult(results, item, (a) => CryptoEngine.toChecksumAddress(a));
+
+    if (await handleBatchRpcFailure(this, this.batch, results, {
+      hasResult: (item) => Boolean(getInfo(item)),
+      retryMs: RUNTIME_CONFIG.RPC_RETRY_MS || 15000,
+    })) {
+      this.batch = [];
+      return;
+    }
 
     const historyFile = path.join(this.resultsDir, 'batch_history.jsonl');
     for (const item of this.batch) {
-      const info = results[item.addr] || { balance: 0n };
+      const info = getInfo(item);
       const privHexPadded = item.privHex.padStart(64, '0');
       const record = {
         timestamp:       new Date().toISOString(),

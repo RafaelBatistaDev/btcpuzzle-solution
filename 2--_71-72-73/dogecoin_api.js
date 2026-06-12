@@ -258,17 +258,9 @@ export async function queryDogecoinBalances({
     pending = addresses.filter((addr) => !final[addr]);
   }
 
-  for (const addr of addresses) {
-    if (!final[addr]) {
-      final[addr] = {
-        balance: 0n,
-        address: addr,
-        nTx: 0,
-        totalReceived: 0,
-        totalSent: 0,
-        provider: 'unknown',
-      };
-    }
+  const unresolved = addresses.filter((addr) => !final[addr]);
+  if (unresolved.length > 0) {
+    onLog(`⚠️ [Dogecoin] ${unresolved.length}/${addresses.length} endereços sem resposta após todos os provedores`);
   }
 
   return final;
