@@ -21,6 +21,7 @@ from audit_common import (
     load_env,
     mask_secret,
     ok,
+    bulk_audit_btc,
     print_bitcoin_result,
     print_summary,
     project_root,
@@ -97,13 +98,21 @@ def main() -> int:
     else:
         ok("Campos esperados: balance (Alchemy)")
 
-    # ── Puzzles reais ─────────────────────────────────────────────────────────
-    section("SALDOS DOS PUZZLES 71, 72, 73 (API REAL)")
+    # ── Puzzles reais (bulk — 1 req para 3 targets) ───────────────────────────
+    section("SALDOS DOS PUZZLES 71, 72, 73 (bulk — 1 req blockchain.info)")
     latencies: list[float] = []
-    for i, (pid, addr) in enumerate(targets.items()):
-        if i > 0 and delay_ms > 0:
-            time.sleep(delay_ms / 1000.0)
-        r = query_bitcoin_balance(base_url, addr, timeout, env)
+    rows = bulk_audit_btc(env, timeout, {"BTC_P2PKH": BTC_DEFAULTS})
+    for row in rows:
+        pid = row["puzzle"]
+        r = {
+            "addr": row["addr"],
+            "saldo": row["balance"],
+            "n_tx": row["n_tx"],
+            "ms": row["ms"],
+            "status": 200 if row["ok"] else 0,
+            "ok": row["ok"],
+            "provider": row["provider"],
+        }
         print_bitcoin_result(f"Puzzle #{pid}", r)
         if r["ok"]:
             result.ok(f"puzzle #{pid}")

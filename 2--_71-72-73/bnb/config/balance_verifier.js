@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine } from './utils.js';
 import { RUNTIME_CONFIG } from './config.js';
+import { dispatchEvmBalances } from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -78,74 +79,48 @@ export class BnbBalanceVerifier {
     const foundCount = { total: 0, addresses: [] };
 
     this.log(`🔍 BNB Verifier: Checando ${addresses.length} endereços...`);
-    this.log(`📡 RPC: ${this.rpcUrl} (Ankr Token API)`);
+    this.log(`📡 RPC batch eth_getBalance (${RUNTIME_CONFIG.RPC_ENDPOINTS?.length || 1} endpoint(s))`);
 
     try {
-      // Usa Ankr Token API - ankr_getAccountBalance para BNB
-      for (let i = 0; i < addresses.length; i++) {
-        const addr = addresses[i];
-        const payload = {
-          jsonrpc: '2.0',
-          method: 'ankr_getAccountBalance',
-          params: {
-            blockchain: ['bsc'],
-            walletAddress: addr.toLowerCase(),
-            onlyWhitelisted: true,     // Default conforme doc
-            nativeFirst: true          // Priorizar BNB
-          },
-          id: 1
-        };
-        
-        const resp = await axios.post(this.rpcUrl, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'Puzzle-Solver-Client/1.0',
-            'Connection': 'keep-alive'
-          },
-          timeout: RUNTIME_CONFIG.TIMEOUT_MS,
-        });
-
-        this.logApiResponse([addr], 'ankr_getAccountBalance', resp.status, resp.data);
-
-        if (resp.data.result && resp.data.result.assets) {
-          const assets = resp.data.result.assets;
-          const bnbBalance = assets.find(a => a.tokenSymbol === 'BNB');
-          
-          if (bnbBalance) {
-            const balanceWei = BigInt(bnbBalance.balanceRawInteger || '0');
-            const balanceBnb = Number(balanceWei) / 1e18;
-            const checksumAddr = CryptoEngine.toChecksumAddress(addr);
-
-            const result = {
-              address: checksumAddr,
-              balanceWei: bnbBalance.balanceRawInteger || '0',
-              balanceBnb: balanceBnb.toFixed(8),
-              timestamp: new Date().toISOString(),
-            };
-
-            results.push(result);
-
-            if (balanceWei > 0n) {
-              foundCount.total++;
-              foundCount.addresses.push(checksumAddr);
-
-              const alert = '\x07'.repeat(5);
-              const puzzleStr = puzzle ? ` [PUZZLE #${puzzle}]` : '';
-              this.log(`${alert}\n${'='.repeat(80)}\n🚨 BNB SALDO ENCONTRADO!${puzzleStr} 🚨\nEndereço: ${checksumAddr}\nSaldo: ${balanceBnb.toFixed(8)} BNB\n${'='.repeat(80)}\n`);
-
-              this._saveToFoundFile('bnb', puzzle, checksumAddr, bnbBalance.balanceRawInteger, `${balanceBnb.toFixed(8)} BNB`);
-            }
-          }
+      const { results: balanceMap } = await dispatchEvmBalances(
+        axios,
+        addresses,
+        RUNTIME_CONFIG.RPC_ENDPOINTS || [RUNTIME_CONFIG.RPC_ENDPOINT],
+        {
+          timeoutMs: RUNTIME_CONFIG.TIMEOUT_MS,
+          retryMs: RUNTIME_CONFIG.RPC_RETRY_MS || 15000,
+          toChecksum: (addr) => CryptoEngine.toChecksumAddress(addr),
         }
+      );
 
-        if (i < addresses.length - 1) {
-          await new Promise(r => setTimeout(r, this.delay));
+      for (const addr of addresses) {
+        const checksumAddr = CryptoEngine.toChecksumAddress(addr);
+        const info = balanceMap[checksumAddr];
+        if (!info) continue;
+
+        const balanceWei = info.balance;
+        const balanceBnb = Number(balanceWei) / 1e18;
+
+        const result = {
+          address: checksumAddr,
+          balanceWei: balanceWei.toString(),
+          balanceBnb: balanceBnb.toFixed(8),
+          timestamp: new Date().toISOString(),
+        };
+        results.push(result);
+
+        if (balanceWei > 0n) {
+          foundCount.total++;
+          foundCount.addresses.push(checksumAddr);
+          const alert = '\x07'.repeat(5);
+          const puzzleStr = puzzle ? ` [PUZZLE #${puzzle}]` : '';
+          this.log(`${alert}\n${'='.repeat(80)}\n🚨 BNB SALDO ENCONTRADO!${puzzleStr} 🚨\nEndereço: ${checksumAddr}\nSaldo: ${balanceBnb.toFixed(8)} BNB\n${'='.repeat(80)}\n`);
+          this._saveToFoundFile('bnb', puzzle, checksumAddr, balanceWei.toString(), `${balanceBnb.toFixed(8)} BNB`);
         }
       }
     } catch (err) {
-      this.logApiResponse(addresses, 'ankr_getAccountBalance', err.response?.status || 0, { error: err.message });
-      this.log(`⚠️  Erro Ankr Token API BNB: ${err.message}`);
+      this.logApiResponse(addresses, 'eth_getBalance', err.response?.status || 0, { error: err.message });
+      this.log(`⚠️  Erro RPC BNB: ${err.message}`);
     }
 
     if (foundCount.total > 0) {

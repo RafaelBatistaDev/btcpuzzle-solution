@@ -137,6 +137,9 @@ test_api_litecoin() {
     local root="${url%/}"
     test_url="${root}/${probe_addr}/balance"
     echo -n "  🔗 Litecoin API (Blockcypher)... "
+  elif [[ "$url" == *"alchemy.com"* ]]; then
+    test_url="${url%/}/api/v2/address/${probe_addr}?details=basic"
+    echo -n "  🔗 Litecoin API (Alchemy)... "
   else
     test_url="${url}/balance?active=${probe_addr}"
     echo -n "  🔗 Litecoin API... "
@@ -151,7 +154,7 @@ test_api_litecoin() {
 }
 
 test_api_dogecoin() {
-  local url="${DOGE_BLOCKCHAIN_INFO_BASE_URL:-https://dogecoin.atomicwallet.io/api/v1/address}"
+  local url="${DOGE_BLOCKCHAIN_INFO_BASE_URL:-https://dogecoin.atomicwallet.io/api/v2/address}"
   local probe_addr="D6X5ogrzSKT3S4bhYHoWGuNATqBX9oCUYL"
   local test_url=""
   local label="Dogecoin API"
@@ -160,13 +163,17 @@ test_api_dogecoin() {
     local root="${url%/}"
     test_url="${root}/${probe_addr}/balance"
     label="Blockcypher"
+  elif [[ "$url" == *"alchemy.com"* ]]; then
+    test_url="${url%/}/api/v2/address/${probe_addr}?details=basic"
+    label="Alchemy"
   elif [[ "$url" == *"atomicwallet.io"* ]]; then
     local root="${url%/}"
-    test_url="${root}/${probe_addr}"
+    if [[ "$root" == *"/v2/"* ]]; then
+      test_url="${root}/${probe_addr}?details=basic"
+    else
+      test_url="${root}/${probe_addr}"
+    fi
     label="AtomicWallet"
-  elif [[ "$url" == *"chain.so"* ]]; then
-    test_url="https://chain.so/api/v3/balance/DOGE/${probe_addr}"
-    label="Chain.so"
   else
     test_url="${url%/}/${probe_addr}"
   fi
@@ -181,7 +188,7 @@ test_api_dogecoin() {
   fi
 
   echo -n "fallback AtomicWallet... "
-  body=$(curl -s -m 8 -H "Accept: application/json" "https://dogecoin.atomicwallet.io/api/v1/address/${probe_addr}")
+  body=$(curl -s -m 8 -H "Accept: application/json" "https://dogecoin.atomicwallet.io/api/v2/address/${probe_addr}?details=basic")
   if [[ "$body" == *"balance"* ]]; then
     echo -e "${GREEN}✅${NC}"
     return 0
@@ -263,6 +270,39 @@ run_puzzle_safe() {
     return 1
   fi
   return $exit_code
+}
+
+# Chaves de target por puzzle (71/72/73) — preflight batch cross-puzzle
+# Formato: PREFIX_TARGET_{71,72,73} no .env (ver PUZZLE_TARGET_KEYS em solver_batch_guard.js)
+PUZZLE_TARGETS=(
+  "BTC_P2PKH BTC_P2WPKH BTC_P2SH"
+  "ETH SOL POLYGON BNB"
+)
+
+preflight_targets() {
+  local root=$1
+  local group=$2
+
+  echo -e "${BLUE}🔍 Preflight batch — puzzles 71+72+73 (${group})${NC}"
+  local report
+  report=$(node "$root/solver_batch_guard.js" preflight "$group" 2>&1)
+  local exit_code=$?
+
+  if [ "$exit_code" -eq 0 ]; then
+    export PREFLIGHT_DONE=1
+    local req_count
+    req_count=$(echo "$report" | grep -o '"requests": [0-9]*' | head -1 | grep -o '[0-9]*')
+    echo -e "${GREEN}✅ Preflight OK — ${req_count:-?} req batch (targets 71+72+73)${NC}"
+    echo "$report" | node -e "
+      let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+        try{const r=JSON.parse(d);(r.chains||[]).forEach(c=>console.log('  •',c.chain+':',c.ok?'OK':'FALHOU',c.addresses?('('+c.hit+'/'+c.addresses+')'):''));}catch(e){}
+      });"
+    return 0
+  fi
+
+  echo -e "${YELLOW}⚠️  Preflight falhou — fallback para testes individuais${NC}"
+  echo "$report"
+  return 1
 }
 
 group_solver_patterns() {

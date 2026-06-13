@@ -63,7 +63,7 @@ export const PUZZLE_CONFIG = {
 const baseUrl =
   process.env.DOGE_BLOCKCHAIN_INFO_BASE_URL ||
   envConfig.DOGE_BLOCKCHAIN_INFO_BASE_URL   ||
-  'https://dogecoin.atomicwallet.io/api/v1/address';
+  'https://dogecoin.atomicwallet.io/api/v2/address';
 
 export const RUNTIME_CONFIG = {
   BLOCKCHAIN_INFO_BASE_URL: baseUrl,

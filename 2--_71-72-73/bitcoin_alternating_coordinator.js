@@ -5,19 +5,53 @@
  */
 
 import config from './config.js';
+import axios from 'axios';
 import { BitcoinSolver as P2PKHSolver } from './bitcoin_P2PKH/config/solver.js';
 import { BitcoinSolver as P2WPKHSolver } from './bitcoin_P2WPKH/config/solver.js';
 import { BitcoinSolver as P2SHSolver } from './bitcoin_P2SH-P2WPKH/config/solver.js';
-import { ACTIVE_PUZZLES, RUNTIME_CONFIG as P2PKH_RUNTIME } from './bitcoin_P2PKH/config/config.js';
-import { RUNTIME_CONFIG as P2WPKH_RUNTIME } from './bitcoin_P2WPKH/config/config.js';
-import { RUNTIME_CONFIG as P2SH_RUNTIME } from './bitcoin_P2SH-P2WPKH/config/config.js';
+import { ACTIVE_PUZZLES, RUNTIME_CONFIG as P2PKH_RUNTIME, PUZZLE_CONFIG as P2PKH_CONFIG } from './bitcoin_P2PKH/config/config.js';
+import { RUNTIME_CONFIG as P2WPKH_RUNTIME, PUZZLE_CONFIG as P2WPKH_CONFIG } from './bitcoin_P2WPKH/config/config.js';
+import { RUNTIME_CONFIG as P2SH_RUNTIME, PUZZLE_CONFIG as P2SH_CONFIG } from './bitcoin_P2SH-P2WPKH/config/config.js';
 import { initLimiterDelay } from './bitcoin_rate_limiter.js';
+import { dispatchBlockchainInfoBalances } from './solver_batch_guard.js';
+import { globalLimiter } from './bitcoin_P2PKH/config/solver.js';
 
 const sharedDelay = Number(
   process.env.BTC_DELAY_MS ||
   Math.max(P2PKH_RUNTIME.DELAY_MS, P2WPKH_RUNTIME.DELAY_MS, P2SH_RUNTIME.DELAY_MS)
 );
 initLimiterDelay(sharedDelay);
+
+async function startupBtcPreflight(puzzleIds) {
+  if (process.env.PREFLIGHT_DONE === '1') {
+    console.log('✅ BTC preflight já validado pelo orquestrador (batch 71+72+73)');
+    return;
+  }
+
+  const baseUrl = P2PKH_RUNTIME.BLOCKCHAIN_INFO_BASE_URL || 'https://blockchain.info';
+  const addresses = [];
+  for (const pid of puzzleIds) {
+    if (P2PKH_CONFIG[pid]?.target) addresses.push(P2PKH_CONFIG[pid].target);
+    if (P2WPKH_CONFIG[pid]?.target) addresses.push(P2WPKH_CONFIG[pid].target);
+    if (P2SH_CONFIG[pid]?.target) addresses.push(P2SH_CONFIG[pid].target);
+  }
+
+  if (addresses.length === 0) return;
+
+  console.log(`🔍 BTC startup preflight — ${addresses.length} targets (bulk 1 req)...`);
+  const { results, rateLimited } = await dispatchBlockchainInfoBalances(axios, addresses, baseUrl, {
+    timeoutMs: P2PKH_RUNTIME.TIMEOUT_MS,
+    scheduleFn: (fn) => globalLimiter.schedule(fn),
+  });
+
+  if (rateLimited) {
+    console.warn('⚠️  BTC preflight rate limit — continuando mesmo assim');
+    return;
+  }
+
+  const hit = Object.keys(results).length;
+  console.log(`✅ BTC preflight OK — ${hit}/${addresses.length} respostas`);
+}
 
 function resolvePuzzleIds() {
   const fromEnv = Number(process.env.PUZZLE_ID || config.PUZZLE_ID);
@@ -124,6 +158,7 @@ console.log(
 );
 console.log('╚════════════════════════════════════════════════════════════╝\n');
 
+startupBtcPreflight(puzzleIds).then(() =>
 Promise.all(
   puzzleIds.map(async (id) => {
     const p2pkh = new P2PKHSolver(id);
@@ -141,4 +176,4 @@ Promise.all(
     console.error('❌ Erro no coordenador Bitcoin:', err);
     saveAll();
     process.exit(1);
-  });
+  }));

@@ -41,7 +41,7 @@ def main() -> int:
 
     base_url = (
         env.get("DOGE_BLOCKCHAIN_INFO_BASE_URL")
-        or "https://api.blockcypher.com/v1/doge/main/addrs"
+        or "https://dogecoin.atomicwallet.io/api/v2/address"
     ).rstrip("/")
     timeout = env_int(env, "DOGE_P2PKH_TIMEOUT_MS", "DOGE_TIMEOUT_MS", "TIMEOUT_MS", default=3000) / 1000.0
     delay_ms = env_int(
@@ -88,8 +88,8 @@ def main() -> int:
         ok("Campos esperados: balance, final_balance, n_tx")
     elif provider == "atomicwallet":
         ok("Campos esperados: balance, unconfirmedBalance")
-    elif provider == "chainso":
-        ok("Campos esperados: confirmed_balance, unconfirmed_balance")
+    elif provider == "alchemy":
+        ok("Campos esperados: balance, unconfirmedBalance, txs (Blockbook v2)")
 
     section("SALDOS DOS PUZZLES 71, 72, 73 (API REAL)")
     latencies: list[float] = []

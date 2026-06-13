@@ -381,17 +381,131 @@ def query_bitcoin_balance(
         return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": str(exc), "ok": False, "provider": provider}
 
 
+def query_bitcoin_balances_bulk(
+    base_url: str,
+    addresses: list[str],
+    timeout: float,
+    env: dict[str, str] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """
+    Bulk blockchain.info — ?active=addr1|addr2|...
+    Retorna { addr: { balance, n_tx, ok, ms } }.
+    """
+    base = base_url.rstrip("/")
+    provider = detect_bitcoin_provider(base)
+    unique = [a for a in dict.fromkeys(addresses) if a]
+    if not unique:
+        return {}
+
+    t0 = time.time()
+    if provider != "blockchain.info":
+        out: dict[str, dict[str, Any]] = {}
+        for addr in unique:
+            r = query_bitcoin_balance(base_url, addr, timeout, env)
+            out[addr] = {
+                "balance": r.get("saldo") or 0,
+                "n_tx": r.get("n_tx", 0),
+                "ok": r.get("ok", False),
+                "ms": r.get("ms", 0),
+                "provider": provider,
+            }
+        return out
+
+    active = "|".join(unique)
+    status, body, _ = http_get(f"{base}/balance", timeout, params={"active": active})
+    ms = (time.time() - t0) * 1000
+    out: dict[str, dict[str, Any]] = {}
+
+    if status == 429 or status != 200 or not isinstance(body, dict):
+        for addr in unique:
+            out[addr] = {"balance": 0, "n_tx": 0, "ok": False, "ms": ms, "provider": provider, "status": status}
+        return out
+
+    for addr in unique:
+        entry = body.get(addr)
+        if entry:
+            out[addr] = {
+                "balance": int(entry.get("final_balance", 0)),
+                "n_tx": int(entry.get("n_tx", 0)),
+                "ok": True,
+                "ms": ms,
+                "provider": provider,
+            }
+        else:
+            out[addr] = {"balance": 0, "n_tx": 0, "ok": False, "ms": ms, "provider": provider}
+
+    return out
+
+
+BTC_BULK_DEFAULTS: dict[str, dict[int, str]] = {
+    "BTC_P2PKH": {
+        71: "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU",
+        72: "1JTK7s9YVYywfm5XUH7RNhHJH1LshCaRFR",
+        73: "12VVRNPi4SJqUTsp6FmqDqY5sGosDtysn4",
+    },
+    "BTC_P2WPKH": {
+        71: "bc1q0j55cut9nd2c88tnnsfultdx696c8lt6n4n0su",
+        72: "bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2",
+        73: "bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt",
+    },
+    "BTC_P2SH": {
+        71: "36rRUPzhHyrkyNq9PD2B8WpTikki459JRn",
+        72: "323Wf631NrQ7MAfdJ1cB6k5kaTfKAK1c7C",
+        73: "3Ji9Q4ZX8uKVawfsarpck3RSzaA8rj8R4r",
+    },
+}
+
+
+def bulk_audit_btc(
+    env: dict[str, str],
+    timeout: float,
+    defaults: dict[str, dict[int, str]] | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Unifica 9 targets (3 tipos × 3 puzzles) em 1 req blockchain.info bulk.
+    Retorna lista com { type, puzzle, addr, balance, n_tx, ok }.
+    """
+    defs = defaults or BTC_BULK_DEFAULTS
+    base_url = (env.get("BLOCKCHAIN_INFO_BASE_URL") or "https://blockchain.info").rstrip("/")
+    meta: list[tuple[str, int, str]] = []
+    addresses: list[str] = []
+
+    for type_prefix, puzzle_defaults in defs.items():
+        for pid in (71, 72, 73):
+            key = f"{type_prefix}_TARGET_{pid}"
+            addr = env.get(key) or puzzle_defaults.get(pid, "")
+            if addr:
+                meta.append((type_prefix, pid, addr))
+                addresses.append(addr)
+
+    bulk = query_bitcoin_balances_bulk(base_url, addresses, timeout, env)
+    rows: list[dict[str, Any]] = []
+    for type_prefix, pid, addr in meta:
+        entry = bulk.get(addr, {})
+        rows.append({
+            "type": type_prefix,
+            "puzzle": pid,
+            "addr": addr,
+            "balance": entry.get("balance", 0),
+            "n_tx": entry.get("n_tx", 0),
+            "ok": entry.get("ok", False),
+            "ms": entry.get("ms", 0),
+            "provider": entry.get("provider", detect_bitcoin_provider(base_url)),
+        })
+    return rows
+
+
 def detect_litecoin_provider(base_url: str) -> str:
     """Detecta provedor Litecoin pela URL configurada."""
     url = base_url.lower()
+    if "alchemy.com" in url:
+        return "alchemy"
     if "litecoinspace.org" in url:
         return "litecoinspace"
     if "blockcypher.com" in url:
         return "blockcypher"
     if "atomicwallet.io" in url:
         return "atomicwallet"
-    if "chain.so" in url:
-        return "chainso"
     return "unknown"
 
 
@@ -401,12 +515,25 @@ def query_litecoin_balance(
     timeout: float,
     env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Consulta saldo Litecoin (Litecoinspace, AtomicWallet, Blockcypher ou Chain.so)."""
+    """Consulta saldo Litecoin (Litecoinspace, Alchemy, AtomicWallet ou Blockcypher)."""
     base = base_url.rstrip("/")
     provider = detect_litecoin_provider(base)
     t0 = time.time()
 
     try:
+        if provider == "alchemy":
+            status, body, _ = http_get(f"{base.rstrip('/')}/api/v2/address/{addr}?details=basic", timeout)
+            ms = (time.time() - t0) * 1000
+            if status in (401, 429):
+                return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": status, "ok": False, "provider": provider}
+            if status == 404:
+                return {"addr": addr, "saldo": 0, "n_tx": 0, "ms": ms, "status": 404, "ok": True, "provider": provider}
+            if status != 200 or not isinstance(body, dict) or body.get("error"):
+                return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": status, "ok": False, "provider": provider}
+            saldo = _parse_doge_balance(body.get("balance", 0)) + _parse_doge_balance(body.get("unconfirmedBalance", 0))
+            n_tx = int(body.get("txs", 0)) or (1 if saldo > 0 else 0)
+            return {"addr": addr, "saldo": saldo, "n_tx": n_tx, "ms": ms, "status": 200, "ok": True, "provider": provider}
+
         if provider == "litecoinspace":
             status, body, _ = http_get(mempool_address_url(base, addr), timeout)
             ms = (time.time() - t0) * 1000
@@ -454,21 +581,6 @@ def query_litecoin_balance(
             n_tx = int(body.get("txApperances", body.get("txAppearances", 0)))
             return {"addr": addr, "saldo": saldo, "n_tx": n_tx, "ms": ms, "status": 200, "ok": True, "provider": provider}
 
-        if provider == "chainso":
-            api_key = (env or {}).get("LTC_CHAIN_SO_API_KEY") or (env or {}).get("CHAIN_SO_API_KEY")
-            headers = {"API-KEY": api_key} if api_key else None
-            status, body, _ = http_get(f"https://chain.so/api/v3/balance/LTC/{addr}", timeout, headers=headers)
-            ms = (time.time() - t0) * 1000
-            if status in (401, 429):
-                return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": status, "ok": False, "provider": provider}
-            if status != 200 or not isinstance(body, dict) or body.get("status") == "fail":
-                return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": status, "ok": False, "provider": provider}
-            payload = body.get("data", body)
-            saldo = int(payload.get("confirmed_balance", payload.get("balance", 0)))
-            saldo += int(payload.get("unconfirmed_balance", payload.get("unconfirmed", 0)))
-            n_tx = int(payload.get("txs_total", payload.get("txs_received", 0)))
-            return {"addr": addr, "saldo": saldo, "n_tx": n_tx, "ms": ms, "status": 200, "ok": True, "provider": provider}
-
         return {"addr": addr, "saldo": None, "n_tx": 0, "ms": (time.time() - t0) * 1000, "status": "unknown_provider", "ok": False, "provider": provider}
 
     except Exception as exc:
@@ -495,13 +607,32 @@ def print_litecoin_result(label: str, r: dict[str, Any]) -> None:
 def detect_dogecoin_provider(base_url: str) -> str:
     """Detecta provedor Dogecoin pela URL configurada."""
     url = base_url.lower()
-    if "blockcypher.com" in url:
-        return "blockcypher"
+    if "alchemy.com" in url:
+        return "alchemy"
     if "atomicwallet.io" in url:
         return "atomicwallet"
-    if "chain.so" in url:
-        return "chainso"
+    if "blockcypher.com" in url:
+        return "blockcypher"
     return "unknown"
+
+
+def _atomicwallet_address_url(base_url: str, addr: str) -> str:
+    root = base_url.rstrip("/")
+    if "/v2/" in root:
+        return f"{root}/{addr}?details=basic"
+    return f"{root}/{addr}"
+
+
+def _parse_doge_balance(value: object) -> int:
+    """Converte koinu inteiros ou strings decimais DOGE para koinu."""
+    if value is None or value == "":
+        return 0
+    text = str(value).strip()
+    if "." in text:
+        whole, _, frac = text.partition(".")
+        padded = (frac + "00000000")[:8]
+        return int(whole or "0") * 100_000_000 + int(padded)
+    return int(text)
 
 
 def query_dogecoin_balance(
@@ -510,7 +641,7 @@ def query_dogecoin_balance(
     timeout: float,
     env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Consulta saldo Dogecoin (AtomicWallet, Blockcypher ou Chain.so)."""
+    """Consulta saldo Dogecoin (Alchemy, AtomicWallet/Blockbook ou Blockcypher)."""
     base = base_url.rstrip("/")
     provider = detect_dogecoin_provider(base)
     t0 = time.time()
@@ -529,11 +660,22 @@ def query_dogecoin_balance(
             n_tx = int(body.get("final_n_tx", body.get("n_tx", 0)))
             return {"addr": addr, "saldo": saldo, "n_tx": n_tx, "ms": ms, "status": 200, "ok": True, "provider": provider}
 
+        if provider == "alchemy":
+            status, body, _ = http_get(f"{base.rstrip('/')}/api/v2/address/{addr}?details=basic", timeout)
+            ms = (time.time() - t0) * 1000
+            if status in (401, 429):
+                return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": status, "ok": False, "provider": provider}
+            if status == 404:
+                return {"addr": addr, "saldo": 0, "n_tx": 0, "ms": ms, "status": 404, "ok": True, "provider": provider}
+            if status != 200 or not isinstance(body, dict) or body.get("error"):
+                return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": status, "ok": False, "provider": provider}
+            saldo = _parse_doge_balance(body.get("balance", 0)) + _parse_doge_balance(body.get("unconfirmedBalance", 0))
+            n_tx = int(body.get("txs", 0)) or (1 if saldo > 0 else 0)
+            return {"addr": addr, "saldo": saldo, "n_tx": n_tx, "ms": ms, "status": 200, "ok": True, "provider": provider}
+
         if provider == "atomicwallet":
-            root = base.rstrip("/")
-            if not root.endswith("/address"):
-                root = "https://dogecoin.atomicwallet.io/api/v1/address"
-            status, body, _ = http_get(f"{root}/{addr}", timeout)
+            root = base if "atomicwallet.io" in base else "https://dogecoin.atomicwallet.io/api/v2/address"
+            status, body, _ = http_get(_atomicwallet_address_url(root, addr), timeout)
             ms = (time.time() - t0) * 1000
             if status == 429:
                 return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": 429, "ok": False, "provider": provider}
@@ -541,23 +683,8 @@ def query_dogecoin_balance(
                 return {"addr": addr, "saldo": 0, "n_tx": 0, "ms": ms, "status": 404, "ok": True, "provider": provider}
             if status != 200 or not isinstance(body, dict) or body.get("error"):
                 return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": status, "ok": False, "provider": provider}
-            saldo = int(body.get("balance", 0)) + int(body.get("unconfirmedBalance", 0))
-            n_tx = 1 if saldo > 0 else 0
-            return {"addr": addr, "saldo": saldo, "n_tx": n_tx, "ms": ms, "status": 200, "ok": True, "provider": provider}
-
-        if provider == "chainso":
-            api_key = (env or {}).get("DOGE_CHAIN_SO_API_KEY") or (env or {}).get("CHAIN_SO_API_KEY")
-            headers = {"API-KEY": api_key} if api_key else None
-            status, body, _ = http_get(f"https://chain.so/api/v3/balance/DOGE/{addr}", timeout, headers=headers)
-            ms = (time.time() - t0) * 1000
-            if status in (401, 429):
-                return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": status, "ok": False, "provider": provider}
-            if status != 200 or not isinstance(body, dict) or body.get("status") == "fail":
-                return {"addr": addr, "saldo": None, "n_tx": 0, "ms": ms, "status": status, "ok": False, "provider": provider}
-            payload = body.get("data", body)
-            saldo = int(payload.get("confirmed_balance", payload.get("balance", 0)))
-            saldo += int(payload.get("unconfirmed_balance", payload.get("unconfirmed", 0)))
-            n_tx = int(payload.get("txs_total", payload.get("txs_received", 0)))
+            saldo = _parse_doge_balance(body.get("balance", 0)) + _parse_doge_balance(body.get("unconfirmedBalance", 0))
+            n_tx = int(body.get("txs", 0)) or (1 if saldo > 0 else 0)
             return {"addr": addr, "saldo": saldo, "n_tx": n_tx, "ms": ms, "status": 200, "ok": True, "provider": provider}
 
         return {"addr": addr, "saldo": None, "n_tx": 0, "ms": (time.time() - t0) * 1000, "status": "unknown_provider", "ok": False, "provider": provider}
@@ -776,6 +903,54 @@ def query_solana_wallet_balance(rpc_url: str, addr: str, timeout: float) -> dict
     except Exception as exc:
         ms = (time.time() - t0) * 1000
         return {"addr": addr, "ok": False, "error": str(exc), "ms": ms, "method": "getBalance"}
+
+
+def query_solana_batch_balances(
+    rpc_url: str,
+    addresses: list[str],
+    timeout: float,
+) -> list[dict[str, Any]]:
+    """Consulta saldos Solana via getBalance JSON-RPC batch (1 req)."""
+    unique = [a for a in dict.fromkeys(addresses) if a]
+    if not unique:
+        return []
+
+    t0 = time.time()
+    payload = [
+        {"jsonrpc": "2.0", "id": idx + 1, "method": "getBalance", "params": [addr]}
+        for idx, addr in enumerate(unique)
+    ]
+    status, body, _ = http_post(rpc_url, timeout, payload)
+    ms = (time.time() - t0) * 1000
+    results: list[dict[str, Any]] = []
+
+    if status == 429:
+        for addr in unique:
+            results.append({"addr": addr, "ok": False, "status": 429, "ms": ms, "method": "getBalance"})
+        return results
+
+    if isinstance(body, list):
+        for idx, item in enumerate(body):
+            addr = unique[idx] if idx < len(unique) else ""
+            if isinstance(item, dict) and "result" in item:
+                lamports = int(item["result"].get("value", 0))
+                results.append({
+                    "addr": addr,
+                    "ok": True,
+                    "lamports": lamports,
+                    "sol": lamports / 1e9,
+                    "ms": ms,
+                    "method": "getBalance",
+                })
+            else:
+                results.append({
+                    "addr": addr,
+                    "ok": False,
+                    "error": item.get("error") if isinstance(item, dict) else item,
+                    "ms": ms,
+                    "method": "getBalance",
+                })
+    return results
 
 
 def query_solana_solver_balance(rpc_url: str, addr: str, timeout: float) -> dict[str, Any]:

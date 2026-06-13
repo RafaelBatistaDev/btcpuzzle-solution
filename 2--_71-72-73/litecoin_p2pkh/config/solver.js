@@ -156,7 +156,6 @@ export class LitecoinSolver {
     await this.checkRateLimit();
 
     const baseUrl = RUNTIME_CONFIG.BLOCKCHAIN_INFO_BASE_URL || LTC_DEFAULT_API_URL;
-    const chainSoApiKey = process.env.LTC_CHAIN_SO_API_KEY || process.env.CHAIN_SO_API_KEY || null;
 
     if (!addresses.length) return {};
 
@@ -168,7 +167,6 @@ export class LitecoinSolver {
         baseUrl,
         addresses,
         timeoutMs: RUNTIME_CONFIG.TIMEOUT_MS,
-        chainSoApiKey,
         onLog: (msg) => this.log(msg),
         schedule: (fn) => globalLimiter.schedule(fn),
       });

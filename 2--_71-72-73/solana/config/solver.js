@@ -9,7 +9,11 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine } from './utils.js';
 import { PUZZLE_CONFIG, RUNTIME_CONFIG } from './config.js';
-import { handleBatchRpcFailure, logBatchItemErrors } from '../../solver_batch_guard.js';
+import {
+  handleBatchRpcFailure,
+  logBatchItemErrors,
+  dispatchSolanaBalances,
+} from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -176,60 +180,35 @@ export class SolanaSolver {
     const url = RUNTIME_CONFIG.RPC_ENDPOINT;
 
     try {
-      this.log(`📡 Consultando lote de ${addresses.length} endereços via Solana RPC...`);
-      let itemErrors = 0;
-      let firstError = '';
+      this.log(`📡 Consultando lote de ${addresses.length} endereços via Solana RPC (batch)...`);
+      this.state.dailyRequests.count++;
+      this._saveState();
 
-      for (let i = 0; i < addresses.length; i++) {
-        const addr = addresses[i];
-        this.state.dailyRequests.count++;
-        this._saveState();
-
-        try {
-          const payload = {
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getBalance',
-            params: [addr],
-          };
-
-          const resp = await axios.post(url, payload, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'User-Agent': 'Puzzle-Solver-Client/1.0',
-              'Connection': 'keep-alive'
-            },
-            timeout: RUNTIME_CONFIG.TIMEOUT_MS,
-          });
-
-          if (resp.data.result && resp.data.result.value !== undefined) {
-            const lamports = BigInt(resp.data.result.value || 0);
-            const sol = Number(lamports) / 1e9;
-            result[addr] = {
-              balance: lamports,
-              decimals: 9,
-              uiAmount: sol,
-              address: addr
-            };
-          } else if (resp.data.error) {
-            itemErrors++;
-            if (!firstError) firstError = resp.data.error.message || `code ${resp.data.error.code}`;
-          }
-        } catch (err) {
-          itemErrors++;
-          if (!firstError) firstError = err.message;
-          if (err.response?.status === 429 || err.code === 'ECONNABORTED') {
-            await new Promise(r => setTimeout(r, RUNTIME_CONFIG.RPC_RETRY_MS || 15000));
-          }
+      const { results: batchResults, rateLimited } = await dispatchSolanaBalances(
+        axios,
+        addresses,
+        url,
+        {
+          timeoutMs: RUNTIME_CONFIG.TIMEOUT_MS,
+          retryMs: RUNTIME_CONFIG.RPC_RETRY_MS || 15000,
         }
+      );
 
-        if (i < addresses.length - 1) {
-          await new Promise(r => setTimeout(r, RUNTIME_CONFIG.BATCH_DELAY_MS));
-        }
+      if (rateLimited) {
+        this.log(`⚠️ [Solana RPC] Rate limit 429 — aguardando Retry-After/backoff...`);
+        await new Promise((r) => setTimeout(r, RUNTIME_CONFIG.RPC_RETRY_MS || 15000));
+        return this.queryRPC(addresses);
       }
 
-      logBatchItemErrors((msg) => this.log(msg), 'Solana RPC', itemErrors, addresses.length, firstError);
+      Object.assign(result, batchResults);
+      const itemErrors = addresses.filter((a) => !result[a]).length;
+      logBatchItemErrors(
+        (msg) => this.log(msg),
+        'Solana RPC',
+        itemErrors,
+        addresses.length,
+        itemErrors ? 'resposta incompleta no batch' : ''
+      );
 
       return result;
     } catch (err) {

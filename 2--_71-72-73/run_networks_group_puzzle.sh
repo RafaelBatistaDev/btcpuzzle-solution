@@ -86,18 +86,27 @@ case "$GROUP" in
   evm) TOTAL_STEPS=4 ;;
 esac
 
-if [ "$GROUP" = "bitcoin" ]; then
-  test_api_bitcoin && BTC_OK=1 || { echo -e "${RED}⚠️  Bitcoin indisponível${NC}"; BTC_OK=0; }
-fi
-if [ "$GROUP" = "ltc_doge" ]; then
-  test_api_litecoin && LTC_OK=1 || { echo -e "${RED}⚠️  Litecoin indisponível${NC}"; LTC_OK=0; }
-  test_api_dogecoin && DOGE_OK=1 || { echo -e "${RED}⚠️  Dogecoin indisponível${NC}"; DOGE_OK=0; }
-fi
-if [ "$GROUP" = "evm" ]; then
-  test_api_ethereum && ETH_OK=1 || { echo -e "${RED}⚠️  Ethereum indisponível${NC}"; ETH_OK=0; }
-  test_api_solana && SOL_OK=1 || { echo -e "${RED}⚠️  Solana indisponível${NC}"; SOL_OK=0; }
-  test_api_polygon && POLY_OK=1 || { echo -e "${RED}⚠️  Polygon indisponível${NC}"; POLY_OK=0; }
-  test_api_bnb && BNB_OK=1 || { echo -e "${RED}⚠️  BNB indisponível${NC}"; BNB_OK=0; }
+if [ "${PREFLIGHT_DONE:-0}" = "1" ]; then
+  echo -e "${GREEN}✅ Conectividade validada via preflight batch (puzzles 71+72+73)${NC}"
+  case "$GROUP" in
+    bitcoin) BTC_OK=1 ;;
+    ltc_doge) LTC_OK=1; DOGE_OK=1 ;;
+    evm) ETH_OK=1; SOL_OK=1; POLY_OK=1; BNB_OK=1 ;;
+  esac
+else
+  if [ "$GROUP" = "bitcoin" ]; then
+    test_api_bitcoin && BTC_OK=1 || { echo -e "${RED}⚠️  Bitcoin indisponível${NC}"; BTC_OK=0; }
+  fi
+  if [ "$GROUP" = "ltc_doge" ]; then
+    test_api_litecoin && LTC_OK=1 || { echo -e "${RED}⚠️  Litecoin indisponível${NC}"; LTC_OK=0; }
+    test_api_dogecoin && DOGE_OK=1 || { echo -e "${RED}⚠️  Dogecoin indisponível${NC}"; DOGE_OK=0; }
+  fi
+  if [ "$GROUP" = "evm" ]; then
+    test_api_ethereum && ETH_OK=1 || { echo -e "${RED}⚠️  Ethereum indisponível${NC}"; ETH_OK=0; }
+    test_api_solana && SOL_OK=1 || { echo -e "${RED}⚠️  Solana indisponível${NC}"; SOL_OK=0; }
+    test_api_polygon && POLY_OK=1 || { echo -e "${RED}⚠️  Polygon indisponível${NC}"; POLY_OK=0; }
+    test_api_bnb && BNB_OK=1 || { echo -e "${RED}⚠️  BNB indisponível${NC}"; BNB_OK=0; }
+  fi
 fi
 
 echo ""

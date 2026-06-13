@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine } from './utils.js';
 import { RUNTIME_CONFIG } from './config.js';
+import { dispatchSolanaBalances } from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -78,57 +79,41 @@ export class SolanaBalanceVerifier {
     const foundCount = { total: 0, addresses: [] };
 
     this.log(`🔍 Solana Verifier: Checando ${addresses.length} endereços...`);
-    this.log(`📡 RPC: ${this.rpcUrl} (getBalance)`);
+    this.log(`📡 RPC batch getBalance`);
 
     try {
-      for (let i = 0; i < addresses.length; i++) {
-        const addr = addresses[i];
-        const payload = {
-          jsonrpc: '2.0',
-          method: 'getBalance',
-          params: [addr],
-          id: 1
-        };
-        
-        const resp = await axios.post(this.rpcUrl, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'Puzzle-Solver-Client/1.0',
-            'Connection': 'keep-alive'
-          },
-          timeout: RUNTIME_CONFIG.TIMEOUT_MS,
-        });
-
-        this.logApiResponse([addr], 'getBalance', resp.status, resp.data);
-
-        if (resp.data.result && resp.data.result.value !== undefined) {
-          const balanceLamports = BigInt(resp.data.result.value || 0);
-          const balanceSol = Number(balanceLamports) / 1e9;
-
-          const result = {
-            address: addr,
-            balanceLamports: balanceLamports.toString(),
-            balanceSol: balanceSol.toFixed(9),
-            timestamp: new Date().toISOString(),
-          };
-
-          results.push(result);
-
-          if (balanceLamports > 0n) {
-            foundCount.total++;
-            foundCount.addresses.push(addr);
-
-            const alert = '\x07'.repeat(5);
-            const puzzleStr = puzzle ? ` [PUZZLE #${puzzle}]` : '';
-            this.log(`${alert}\n${'='.repeat(80)}\n🚨 SOLANA SALDO ENCONTRADO!${puzzleStr} 🚨\nEndereço: ${addr}\nSaldo: ${balanceSol.toFixed(9)} SOL\n${'='.repeat(80)}\n`);
-
-            this._saveToFoundFile('solana', puzzle, addr, balanceLamports.toString(), `${balanceSol.toFixed(9)} SOL`);
-          }
+      const { results: balanceMap } = await dispatchSolanaBalances(
+        axios,
+        addresses,
+        this.rpcUrl,
+        {
+          timeoutMs: RUNTIME_CONFIG.TIMEOUT_MS,
+          retryMs: RUNTIME_CONFIG.RPC_RETRY_MS || 15000,
         }
+      );
 
-        if (i < addresses.length - 1) {
-          await new Promise(r => setTimeout(r, this.delay));
+      for (const addr of addresses) {
+        const info = balanceMap[addr];
+        if (!info) continue;
+
+        const balanceLamports = info.balance;
+        const balanceSol = Number(balanceLamports) / 1e9;
+
+        const result = {
+          address: addr,
+          balanceLamports: balanceLamports.toString(),
+          balanceSol: balanceSol.toFixed(9),
+          timestamp: new Date().toISOString(),
+        };
+        results.push(result);
+
+        if (balanceLamports > 0n) {
+          foundCount.total++;
+          foundCount.addresses.push(addr);
+          const alert = '\x07'.repeat(5);
+          const puzzleStr = puzzle ? ` [PUZZLE #${puzzle}]` : '';
+          this.log(`${alert}\n${'='.repeat(80)}\n🚨 SOLANA SALDO ENCONTRADO!${puzzleStr} 🚨\nEndereço: ${addr}\nSaldo: ${balanceSol.toFixed(9)} SOL\n${'='.repeat(80)}\n`);
+          this._saveToFoundFile('solana', puzzle, addr, balanceLamports.toString(), `${balanceSol.toFixed(9)} SOL`);
         }
       }
     } catch (err) {

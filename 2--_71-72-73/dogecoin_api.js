@@ -1,18 +1,21 @@
 /**
- * Cliente Dogecoin unificado — AtomicWallet, Blockcypher (batch), Chain.so.
+ * Cliente Dogecoin — Alchemy Blockbook, AtomicWallet, Blockcypher.
  */
 import axios from 'axios';
 
-export const DOGE_DEFAULT_API_URL = 'https://dogecoin.atomicwallet.io/api/v1/address';
+export const DOGE_DEFAULT_API_URL = 'https://dogecoin.atomicwallet.io/api/v2/address';
+export const DOGE_ATOMICWALLET_V1_URL = 'https://dogecoin.atomicwallet.io/api/v1/address';
 export const DOGE_BLOCKCYPHER_URL = 'https://api.blockcypher.com/v1/doge/main/addrs';
 
 const USER_AGENT = 'Puzzle-Solver/1.0';
+const DEFAULT_CONCURRENCY = 5;
+const CHUNK_PAUSE_MS = 300;
 
 export function detectDogecoinProvider(baseUrl) {
   const url = (baseUrl || '').toLowerCase();
-  if (url.includes('blockcypher.com')) return 'blockcypher';
-  if (url.includes('chain.so')) return 'chainso';
+  if (url.includes('alchemy.com')) return 'alchemy';
   if (url.includes('atomicwallet.io')) return 'atomicwallet';
+  if (url.includes('blockcypher.com')) return 'blockcypher';
   return 'unknown';
 }
 
@@ -26,15 +29,41 @@ export function isCloudflareBlocked(response) {
 
 export function isRateLimited(response) {
   if (!response) return false;
-  if (response.status === 429) return true;
+  if (response.status === 429 || response.status === 430) return true;
   const body = response.data;
   if (body && typeof body === 'object' && !Array.isArray(body) && body.error) {
-    return String(body.error).toLowerCase().includes('limit');
+    const err = String(body.error).toLowerCase();
+    return err.includes('limit') || err.includes('limits reached');
   }
   if (Array.isArray(body)) {
-    return body.some((item) => item?.error && String(item.error).includes('429'));
+    return body.some((item) => item?.error && String(item.error).toLowerCase().includes('limit'));
   }
   return false;
+}
+
+function parseCoinBalance(value) {
+  if (value === null || value === undefined || value === '') return 0n;
+  const str = String(value).trim();
+  if (str.includes('.')) {
+    const [whole, frac = ''] = str.split('.');
+    const padded = (frac + '00000000').slice(0, 8);
+    return BigInt(whole || '0') * 100000000n + BigInt(padded);
+  }
+  return BigInt(str);
+}
+
+function entryFromBlockbook(addr, data, provider) {
+  if (!data || data.error) return null;
+  const balance = parseCoinBalance(data.balance ?? 0)
+    + parseCoinBalance(data.unconfirmedBalance ?? 0);
+  return {
+    balance,
+    address: addr,
+    nTx: data.txs ?? data.txApperances ?? data.txAppearances ?? (balance > 0n ? 1 : 0),
+    totalReceived: parseCoinBalance(data.totalReceived ?? 0),
+    totalSent: parseCoinBalance(data.totalSent ?? 0),
+    provider,
+  };
 }
 
 function entryFromBlockcypher(addr, data) {
@@ -49,49 +78,31 @@ function entryFromBlockcypher(addr, data) {
   };
 }
 
-function entryFromAtomicwallet(addr, data) {
-  if (!data || data.error) return null;
-  const balance = BigInt(data.balance ?? 0) + BigInt(data.unconfirmedBalance ?? 0);
-  return {
-    balance,
-    address: addr,
-    nTx: balance > 0n ? 1 : 0,
-    totalReceived: 0,
-    totalSent: 0,
-    provider: 'atomicwallet',
-  };
+function blockbookAddressUrl(baseUrl, addr) {
+  const root = (baseUrl || DOGE_DEFAULT_API_URL).replace(/\/$/, '');
+  if (root.includes('alchemy.com')) {
+    return `${root}/api/v2/address/${addr}?details=basic`;
+  }
+  if (root.includes('/v2/')) {
+    return `${root}/${addr}?details=basic`;
+  }
+  return `${root}/${addr}`;
 }
 
-function entryFromChainSo(addr, data) {
-  if (!data || data.status === 'fail') return null;
-  const payload = data.data ?? data;
-  const balance = BigInt(
-    payload.confirmed_balance ?? payload.balance ?? payload.confirmed ?? 0
-  ) + BigInt(payload.unconfirmed_balance ?? payload.unconfirmed ?? 0);
-  return {
-    balance,
-    address: addr,
-    nTx: payload.txs_total ?? payload.txs_received ?? 0,
-    totalReceived: payload.confirmed_received ?? 0,
-    totalSent: 0,
-    provider: 'chainso',
-  };
-}
-
-function buildProviderChain(baseUrl, chainSoApiKey) {
+function buildProviderChain(baseUrl) {
   const primary = detectDogecoinProvider(baseUrl);
   const chain = [];
 
-  if (primary !== 'unknown') chain.push({ name: primary, baseUrl });
-  for (const fallback of [
-    { name: 'atomicwallet', baseUrl: DOGE_DEFAULT_API_URL },
-    { name: 'blockcypher', baseUrl: DOGE_BLOCKCYPHER_URL },
-  ]) {
-    if (!chain.some((p) => p.name === fallback.name)) chain.push(fallback);
-  }
-  if (chainSoApiKey && !chain.some((p) => p.name === 'chainso')) {
-    chain.push({ name: 'chainso', baseUrl: 'https://chain.so/api/v3', apiKey: chainSoApiKey });
-  }
+  const add = (name, url) => {
+    if (!chain.some((p) => p.name === name)) {
+      chain.push({ name, baseUrl: url });
+    }
+  };
+
+  if (primary !== 'unknown') add(primary, baseUrl);
+  add('atomicwallet', DOGE_DEFAULT_API_URL);
+  add('blockcypher', DOGE_BLOCKCYPHER_URL);
+
   return chain;
 }
 
@@ -101,6 +112,55 @@ async function httpGet(url, timeoutMs, headers = {}) {
     timeout: timeoutMs,
     validateStatus: () => true,
   });
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function fetchParallelSingle(
+  providerName,
+  addresses,
+  timeoutMs,
+  fetchOne,
+  concurrency = DEFAULT_CONCURRENCY,
+) {
+  const results = {};
+  for (let offset = 0; offset < addresses.length; offset += concurrency) {
+    const chunk = addresses.slice(offset, offset + concurrency);
+    const settled = await Promise.allSettled(chunk.map(async (addr) => {
+      try {
+        const resp = await fetchOne(addr);
+        return { addr, resp };
+      } catch {
+        return { addr, resp: null };
+      }
+    }));
+
+    for (const outcome of settled) {
+      if (outcome.status !== 'fulfilled') continue;
+      const { addr, resp } = outcome.value;
+      if (!resp) continue;
+      if (resp.status === 429) {
+        return { blocked: false, results, rateLimited: true };
+      }
+      if (isCloudflareBlocked(resp)) {
+        return { blocked: true, results, rateLimited: false };
+      }
+      if (resp.status === 404) {
+        results[addr] = {
+          balance: 0n, address: addr, nTx: 0,
+          totalReceived: 0, totalSent: 0, provider: providerName,
+        };
+        continue;
+      }
+      if (resp.status !== 200) continue;
+      if (resp.entry) results[addr] = resp.entry;
+    }
+
+    if (offset + concurrency < addresses.length) {
+      await sleep(CHUNK_PAUSE_MS);
+    }
+  }
+  return { blocked: false, results, rateLimited: false };
 }
 
 async function fetchBlockcypher(provider, addresses, timeoutMs, schedule) {
@@ -146,82 +206,40 @@ async function fetchBlockcypher(provider, addresses, timeoutMs, schedule) {
   return { blocked: false, results, rateLimited: false, httpStatus: resp.status };
 }
 
-async function fetchAtomicwallet(_provider, addresses, timeoutMs, schedule) {
-  const results = {};
-  for (const addr of addresses) {
-    let resp;
-    try {
-      resp = await schedule(() => httpGet(`${DOGE_DEFAULT_API_URL}/${addr}`, timeoutMs));
-    } catch {
-      continue;
-    }
-    if (resp.status === 404) {
-      results[addr] = {
-        balance: 0n, address: addr, nTx: 0,
-        totalReceived: 0, totalSent: 0, provider: 'atomicwallet',
-      };
-      continue;
-    }
-    if (resp.status !== 200) continue;
-    const entry = entryFromAtomicwallet(addr, resp.data);
-    if (entry) results[addr] = entry;
-  }
-  return { blocked: false, results, rateLimited: false };
-}
-
-async function fetchChainSo(provider, addresses, timeoutMs, schedule) {
-  const results = {};
-  const headers = provider.apiKey ? { 'API-KEY': provider.apiKey } : {};
-
-  for (const addr of addresses) {
-    let resp;
-    try {
-      resp = await schedule(() => httpGet(
-        `${provider.baseUrl.replace(/\/$/, '')}/balance/DOGE/${addr}`,
-        timeoutMs,
-        headers,
-      ));
-    } catch {
-      continue;
-    }
-    if (resp.status === 401 || resp.status === 429) {
-      return { blocked: false, results: {}, rateLimited: resp.status === 429 };
-    }
-    if (resp.status !== 200) continue;
-    const entry = entryFromChainSo(addr, resp.data);
-    if (entry) results[addr] = entry;
-  }
-
-  return { blocked: false, results, rateLimited: false };
+async function fetchBlockbook(provider, addresses, timeoutMs, schedule) {
+  const root = provider.baseUrl;
+  return schedule(() => fetchParallelSingle(provider.name, addresses, timeoutMs, async (addr) => {
+    const resp = await httpGet(blockbookAddressUrl(root, addr), timeoutMs);
+    return {
+      status: resp.status,
+      entry: entryFromBlockbook(addr, resp.data, provider.name),
+    };
+  }));
 }
 
 async function fetchWithProvider(provider, addresses, timeoutMs, schedule) {
   switch (provider.name) {
     case 'blockcypher':
       return fetchBlockcypher(provider, addresses, timeoutMs, schedule);
+    case 'alchemy':
     case 'atomicwallet':
-      return fetchAtomicwallet(provider, addresses, timeoutMs, schedule);
-    case 'chainso':
-      return fetchChainSo(provider, addresses, timeoutMs, schedule);
+      return fetchBlockbook(provider, addresses, timeoutMs, schedule);
     default:
       return { blocked: false, results: {}, rateLimited: false, httpStatus: 'unknown_provider' };
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export async function queryDogecoinBalances({
   baseUrl,
   addresses,
   timeoutMs = 3000,
-  chainSoApiKey = null,
   onLog = () => {},
   schedule = (fn) => fn(),
-  maxRetries = 4,
+  maxRetries = 3,
 }) {
   if (!addresses.length) return {};
 
-  const providers = buildProviderChain(baseUrl, chainSoApiKey);
+  const providers = buildProviderChain(baseUrl);
   const final = {};
   let pending = [...addresses];
 
@@ -242,13 +260,13 @@ export async function queryDogecoinBalances({
         outcome = await fetchWithProvider(provider, chunk, timeoutMs, schedule);
 
         if (outcome.blocked) {
-          onLog(`⚠️ [${provider.name}] Bloqueado por Cloudflare — tentando próximo provedor...`);
+          onLog(`⚠️ [${provider.name}] Bloqueado — tentando próximo provedor...`);
           blocked = true;
           break;
         }
 
         if (outcome.rateLimited) {
-          const waitMs = Math.min(15000 * attempt, 90000);
+          const waitMs = Math.min(10000 * attempt, 60000);
           onLog(`⚠️ [${provider.name}] Rate limit (tentativa ${attempt}/${maxRetries}). Aguardando ${waitMs / 1000}s...`);
           await sleep(waitMs);
           continue;
@@ -260,7 +278,12 @@ export async function queryDogecoinBalances({
       if (blocked) break;
 
       if (!outcome || outcome.rateLimited) {
-        onLog(`⚠️ [${provider.name}] Indisponível após ${maxRetries} tentativas — tentando próximo provedor...`);
+        onLog(`⚠️ [${provider.name}] Indisponível — tentando próximo provedor...`);
+        break;
+      }
+
+      if (!Object.keys(outcome.results).length) {
+        onLog(`⚠️ [${provider.name}] Sem resposta — tentando próximo provedor...`);
         break;
       }
 
@@ -281,12 +304,11 @@ export async function queryDogecoinBalances({
   return final;
 }
 
-export async function fetchDogecoinAddressBalance(baseUrl, addr, timeoutMs = 3000, chainSoApiKey = null, schedule = (fn) => fn()) {
+export async function fetchDogecoinAddressBalance(baseUrl, addr, timeoutMs = 3000, schedule = (fn) => fn()) {
   const results = await queryDogecoinBalances({
     baseUrl,
     addresses: [addr],
     timeoutMs,
-    chainSoApiKey,
     schedule,
   });
   const info = results[addr];

@@ -76,10 +76,10 @@ console.log(`   Provedor: ${btcProvider(BTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL
 console.log(`   Suportado (mempool/blockchain)? ${['mempool', 'blockchain.info'].includes(btcProvider(BTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
 
 const ltcProvider = (url) => {
+  if (url.includes('alchemy.com')) return 'alchemy';
   if (url.includes('litecoinspace.org')) return 'litecoinspace';
   if (url.includes('blockcypher.com')) return 'blockcypher';
   if (url.includes('atomicwallet.io')) return 'atomicwallet';
-  if (url.includes('chain.so')) return 'chainso';
   return 'desconhecido';
 };
 
@@ -87,18 +87,18 @@ const ltcProvider = (url) => {
 console.log('\n✅ LITECOIN P2PKH Solver:');
 console.log(`   API URL: ${LTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
 console.log(`   Provedor: ${ltcProvider(LTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)}`);
-console.log(`   Suportado (litecoinspace/blockcypher)? ${['litecoinspace', 'blockcypher', 'atomicwallet', 'chainso'].includes(ltcProvider(LTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
+console.log(`   Suportado (litecoinspace/blockcypher)? ${['litecoinspace', 'blockcypher', 'atomicwallet', 'alchemy'].includes(ltcProvider(LTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
 
 // Teste 9: Litecoin P2SH
 console.log('\n✅ LITECOIN P2SH Solver:');
 console.log(`   API URL: ${LTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
 console.log(`   Provedor: ${ltcProvider(LTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)}`);
-console.log(`   Suportado (litecoinspace/blockcypher)? ${['litecoinspace', 'blockcypher', 'atomicwallet', 'chainso'].includes(ltcProvider(LTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
+console.log(`   Suportado (litecoinspace/blockcypher)? ${['litecoinspace', 'blockcypher', 'atomicwallet', 'alchemy'].includes(ltcProvider(LTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
 
 const dogeProvider = (url) => {
+  if (url.includes('alchemy.com')) return 'alchemy';
   if (url.includes('blockcypher.com')) return 'blockcypher';
   if (url.includes('atomicwallet.io')) return 'atomicwallet';
-  if (url.includes('chain.so')) return 'chainso';
   return 'desconhecido';
 };
 
@@ -106,13 +106,13 @@ const dogeProvider = (url) => {
 console.log('\n✅ DOGECOIN P2PKH Solver:');
 console.log(`   API URL: ${DOGE_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
 console.log(`   Provedor: ${dogeProvider(DOGE_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)}`);
-console.log(`   Suportado? ${['blockcypher', 'atomicwallet', 'chainso'].includes(dogeProvider(DOGE_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
+console.log(`   Suportado? ${['blockcypher', 'atomicwallet', 'alchemy'].includes(dogeProvider(DOGE_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
 
 // Teste 11: Dogecoin P2SH
 console.log('\n✅ DOGECOIN P2SH Solver:');
 console.log(`   API URL: ${DOGE_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL}`);
 console.log(`   Provedor: ${dogeProvider(DOGE_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)}`);
-console.log(`   Suportado? ${['blockcypher', 'atomicwallet', 'chainso'].includes(dogeProvider(DOGE_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
+console.log(`   Suportado? ${['blockcypher', 'atomicwallet', 'alchemy'].includes(dogeProvider(DOGE_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)) ? '✅ SIM' : '❌ NÃO'}`);
 
 console.log('\n' + '═'.repeat(70));
 
@@ -150,19 +150,19 @@ const checks = [
   },
   {
     name: 'Litecoin P2PKH',
-    pass: ['litecoinspace', 'blockcypher', 'atomicwallet', 'chainso'].includes(ltcProvider(LTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
+    pass: ['litecoinspace', 'blockcypher', 'atomicwallet', 'alchemy'].includes(ltcProvider(LTC_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
   },
   {
     name: 'Litecoin P2SH',
-    pass: ['litecoinspace', 'blockcypher', 'atomicwallet', 'chainso'].includes(ltcProvider(LTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
+    pass: ['litecoinspace', 'blockcypher', 'atomicwallet', 'alchemy'].includes(ltcProvider(LTC_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
   },
   {
     name: 'Dogecoin P2PKH',
-    pass: ['blockcypher', 'atomicwallet', 'chainso'].includes(dogeProvider(DOGE_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
+    pass: ['blockcypher', 'atomicwallet', 'alchemy'].includes(dogeProvider(DOGE_P2PKH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
   },
   {
     name: 'Dogecoin P2SH',
-    pass: ['blockcypher', 'atomicwallet', 'chainso'].includes(dogeProvider(DOGE_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
+    pass: ['blockcypher', 'atomicwallet', 'alchemy'].includes(dogeProvider(DOGE_P2SH_CONFIG.BLOCKCHAIN_INFO_BASE_URL)),
   },
 ];
 

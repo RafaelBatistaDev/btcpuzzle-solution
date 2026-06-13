@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine } from './utils.js';
 import { PUZZLE_CONFIG, RUNTIME_CONFIG } from './config.js';
-import { handleBatchRpcFailure, logBatchItemErrors, getEvmResult } from '../../solver_batch_guard.js';
+import { handleBatchRpcFailure, logBatchItemErrors, getEvmResult, dispatchEthereumBalances, isEtherscanUrl } from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -174,133 +174,39 @@ export class EthereumSolver {
 
     const result = {};
     const apiUrl = RUNTIME_CONFIG.RPC_ENDPOINT;
-    const isEtherscan = apiUrl.includes('etherscan.io');
+    const isEtherscan = isEtherscanUrl(apiUrl);
     const isAlchemy   = apiUrl.includes('alchemy.com');
-    // label para logs
     const apiLabel = isEtherscan ? 'Etherscan' : isAlchemy ? 'Alchemy' : 'dRPC';
 
     if (addresses.length === 0) return result;
 
     try {
-      if (isEtherscan) {
-        // ── Etherscan REST: balancemulti (até 20 por chunk) ──────
-        for (let offset = 0; offset < addresses.length; offset += 20) {
-          const chunk = addresses.slice(offset, offset + 20);
-          const addressesStr = chunk.map(a => a.toLowerCase()).join(',');
+      this.log(`📡 [${apiLabel}] Consultando ${addresses.length} endereços (dispatcher batch)...`);
+      this.state.dailyRequests.count++;
+      this._saveState();
 
-          this.log(`📡 [Etherscan] Consultando lote de ${chunk.length} endereços...`);
-          this.state.dailyRequests.count++;
-          this._saveState();
-
-          try {
-            const resp = await axios.get(apiUrl, {
-              params: {
-                chainid: 1,
-                module: 'account',
-                action: 'balancemulti',
-                address: addressesStr,
-                tag: 'latest',
-                apikey: RUNTIME_CONFIG.ETHERSCAN_KEY
-              },
-              headers: {
-                'User-Agent': 'Puzzle-Solver-Client/1.0',
-                'Connection': 'keep-alive'
-              },
-              timeout: RUNTIME_CONFIG.TIMEOUT_MS,
-              validateStatus: () => true
-            });
-
-            if (resp.status === 429 || (resp.data?.result && typeof resp.data.result === 'string' && resp.data.result.includes('rate limit reached'))) {
-              this.log(`⚠️ [Etherscan] Rate limit. Aguardando 5s...`);
-              await sleep(5000);
-              offset -= 20;
-              continue;
-            }
-
-            if (resp.status === 200 && resp.data.status === '1' && Array.isArray(resp.data.result)) {
-              resp.data.result.forEach(item => {
-                const checksumAddr = CryptoEngine.toChecksumAddress(item.account);
-                result[checksumAddr] = {
-                  balance: BigInt(item.balance || '0'),
-                  address: checksumAddr
-                };
-              });
-            } else if (resp.data?.message) {
-              this.log(`⚠️ [Etherscan] ${resp.data.message} (${resp.data.result})`);
-              await sleep(2000);
-              offset -= 20;
-              continue;
-            }
-          } catch (err) {
-            this.log(`⚠️ [Etherscan] Erro: ${err.message}. Retentando em 5s...`);
-            await sleep(5000);
-            offset -= 20;
-            continue;
-          }
-
-          if (offset + 20 < addresses.length) {
-            await sleep(RUNTIME_CONFIG.DELAY_MS);
-          }
+      const { results: chainResults, transient, provider } = await dispatchEthereumBalances(
+        axios,
+        addresses,
+        apiUrl,
+        {
+          etherscanKey: RUNTIME_CONFIG.ETHERSCAN_KEY,
+          fallback: process.env.ETH_RPC_FALLBACK,
+          timeoutMs: RUNTIME_CONFIG.TIMEOUT_MS,
+          retryMs: RUNTIME_CONFIG.RPC_RETRY_MS || 5000,
+          toChecksum: (addr) => CryptoEngine.toChecksumAddress(addr),
         }
+      );
 
-      } else {
-        // ── Alchemy / dRPC JSON-RPC: eth_getBalance em lote (POST) ─
-        // Alchemy Ethereum suporta o mesmo protocolo JSON-RPC que dRPC
-        const payload = addresses.map((addr, index) => ({
-          jsonrpc: '2.0',
-          method: 'eth_getBalance',
-          params: [addr.toLowerCase(), 'latest'],
-          id: index + 1
-        }));
+      Object.assign(result, chainResults);
 
-        this.log(`📡 [${apiLabel}] Consultando ${addresses.length} endereços em lote...`);
-        this.state.dailyRequests.count++;
-        this._saveState();
-
-        try {
-          const resp = await axios.post(apiUrl, payload, {
-            headers: {
-              'Content-Type': 'application/json',
-              'User-Agent': 'Puzzle-Solver-Client/1.0',
-              'Connection': 'keep-alive'
-            },
-            timeout: RUNTIME_CONFIG.TIMEOUT_MS,
-            validateStatus: () => true
-          });
-
-          if (resp.status === 429) {
-            this.log(`⚠️ [${apiLabel}] Rate limit. Aguardando 5s...`);
-            await sleep(5000);
-            return this.queryRPC(addresses);
-          }
-
-          if (resp.status === 200 && Array.isArray(resp.data)) {
-            let itemErrors = 0;
-            let firstError = '';
-            resp.data.forEach((res, index) => {
-              const addr = addresses[index];
-              if (res.result) {
-                const checksumAddr = CryptoEngine.toChecksumAddress(addr);
-                result[checksumAddr] = { balance: BigInt(res.result), address: checksumAddr };
-              } else if (res.error) {
-                itemErrors++;
-                if (!firstError) firstError = res.error.message || 'erro RPC';
-              }
-            });
-            logBatchItemErrors((msg) => this.log(msg), apiLabel, itemErrors, addresses.length, firstError);
-          } else {
-            this.log(`⚠️ [${apiLabel}] Erro HTTP ${resp.status}. Retentando em 5s...`);
-            await sleep(5000);
-            return this.queryRPC(addresses);
-          }
-        } catch (err) {
-          this.log(`⚠️ [${apiLabel}] Erro: ${err.message}. Retentando em 5s...`);
-          await sleep(5000);
-          return this.queryRPC(addresses);
-        }
-
-        await sleep(RUNTIME_CONFIG.DELAY_MS);
+      if (transient) {
+        this.log(`⚠️ [${provider || apiLabel}] Rate limit. Aguardando 5s...`);
+        await sleep(5000);
+        return this.queryRPC(addresses);
       }
+
+      await sleep(RUNTIME_CONFIG.DELAY_MS);
 
       return result;
     } catch (err) {

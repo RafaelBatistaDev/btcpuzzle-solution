@@ -7,7 +7,11 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine }                          from './utils.js';
 import { PUZZLE_CONFIG, RUNTIME_CONFIG, ACTIVE_PUZZLES } from './config.js';
-import { handleBatchRpcFailure, summarizeMissingResults } from '../../solver_batch_guard.js';
+import {
+  handleBatchRpcFailure,
+  summarizeMissingResults,
+  dispatchBlockchainInfoBalances,
+} from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -287,55 +291,30 @@ export class BitcoinSolver {
           }
         }
 
-      // ── Blockchain.info (default) ──────────────────────────────────────────
+      // ── Blockchain.info (default) — bulk ?active=addr1|addr2|... ───────────
       } else {
-        this.log(`📡 [Blockchain.info] Consultando ${addresses.length} endereços...`);
+        this.log(`📡 [Blockchain.info] Consultando ${addresses.length} endereços (bulk)...`);
+        this.state.dailyRequests.count++;
+        this._saveState();
 
-        for (let i = 0; i < addresses.length; i++) {
-          const addr = addresses[i];
-          this.state.dailyRequests.count++;
-          this._saveState();
-
-          try {
-            const resp = await globalLimiter.schedule(() => axios.get(`${baseUrl}/balance`, {
-              params:         { active: addr },
-              headers:        { 'User-Agent': 'ClawRafaelIA-Test/1.0', 'Connection': 'keep-alive' },
-              timeout:        RUNTIME_CONFIG.TIMEOUT_MS,
-              validateStatus: () => true,
-            }));
-
-            if (resp.status === 429) {
-              this.log(`⚠️ [429 Blockchain] Rate limit. Aumentando delay e aguardando 15s...`);
-              globalLimiter.setDelay(3000);
-              await sleep(15000);
-              i--;
-              continue;
-            }
-
-            if (resp.status === 200) {
-              const data = resp.data;
-              if (data && data[addr]) {
-                const entry  = data[addr];
-                result[addr] = {
-                  balance:       BigInt(entry.final_balance   || 0),
-                  address:       addr,
-                  nTx:           entry.n_tx                   || 0,
-                  totalReceived: entry.total_received         || 0,
-                  totalSent:     entry.total_sent             || 0,
-                  provider:      'blockchain.info',
-                };
-              }
-            } else {
-              await sleep(5000);
-              i--;
-              continue;
-            }
-          } catch (err) {
-            await sleep(5000);
-            i--;
-            continue;
+        const { results: bulkResults, rateLimited } = await dispatchBlockchainInfoBalances(
+          axios,
+          addresses,
+          baseUrl,
+          {
+            timeoutMs: RUNTIME_CONFIG.TIMEOUT_MS,
+            scheduleFn: (fn) => globalLimiter.schedule(fn),
           }
+        );
+
+        if (rateLimited) {
+          this.log(`⚠️ [429 Blockchain] Rate limit. Aumentando delay e aguardando 15s...`);
+          globalLimiter.setDelay(3000);
+          await sleep(15000);
+          return this.queryRPC(addresses);
         }
+
+        Object.assign(result, bulkResults);
       }
 
       const providerLabel = isAlchemy ? 'Alchemy' : isMempool ? 'Mempool' : 'Blockchain';

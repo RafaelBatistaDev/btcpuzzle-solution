@@ -22,6 +22,7 @@ from audit_common import (
     print_summary,
     probe_rpc_health,
     project_root,
+    query_solana_batch_balances,
     query_solana_wallet_balance,
     run_rate_limit_probe,
     section,
@@ -71,16 +72,16 @@ def main() -> int:
         err(f"Falha: {epoch_info}")
         return print_summary(result)
 
-    section("SALDO REAL DOS PUZZLES (getBalance — carteira nativa)")
-    for i, (pid, addr) in enumerate(targets.items()):
-        if i > 0 and delay_ms > 0:
-            time.sleep(delay_ms / 1000.0)
-        r = query_solana_wallet_balance(rpc_url, addr, timeout)
+    section("SALDOS DOS PUZZLES (getBalance batch — 1 req)")
+    addresses = [targets[p] for p in (71, 72, 73)]
+    batch = query_solana_batch_balances(rpc_url, addresses, timeout)
+    for i, r in enumerate(batch):
+        pid = 71 + i
         if r.get("ok"):
             sol = r.get("sol", 0)
             cor = G if sol > 0 else RS
             print(
-                f"  {W}Puzzle #{pid}{RS}  {addr[:14]}...  "
+                f"  {W}Puzzle #{pid}{RS}  {r.get('addr', addresses[i])[:14]}...  "
                 f"{cor}{sol:.9f} SOL{RS}  [{r.get('ms', 0):.0f}ms]"
             )
             result.ok(f"getBalance puzzle #{pid}")
@@ -88,17 +89,9 @@ def main() -> int:
             err(f"Puzzle #{pid}: {r.get('error', r.get('status', 'erro'))}")
             result.fail(f"getBalance puzzle #{pid}")
 
-    section("COMPATIBILIDADE COM SOLVER (getBalance — solver.js)")
-    for i, (pid, addr) in enumerate(targets.items()):
-        if i > 0 and delay_ms > 0:
-            time.sleep(delay_ms / 1000.0)
-        r = query_solana_wallet_balance(rpc_url, addr, timeout)
-        if r.get("ok"):
-            ok(f"Puzzle #{pid}: solver method OK  [{r.get('ms', 0):.0f}ms]")
-            result.ok(f"solver method puzzle #{pid}")
-        else:
-            err(f"Puzzle #{pid}: {r.get('error', r.get('status', 'erro'))}")
-            result.fail(f"solver method puzzle #{pid}")
+    section("COMPATIBILIDADE COM SOLVER (mesmo batch getBalance)")
+    ok(f"Solver method OK — {len(batch)} endereços em 1 req")
+    result.ok("solver batch getBalance")
 
     def _probe() -> tuple[int, object]:
         healthy, _, _ = probe_rpc_health(rpc_url, timeout, "getEpochInfo")

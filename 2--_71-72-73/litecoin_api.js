@@ -1,5 +1,5 @@
 /**
- * Cliente Litecoin unificado — Litecoinspace (paralelo), AtomicWallet, Blockcypher (batch), Chain.so.
+ * Cliente Litecoin unificado — Litecoinspace (paralelo), Alchemy, AtomicWallet, Blockcypher.
  */
 import axios from 'axios';
 
@@ -13,10 +13,10 @@ const CHUNK_PAUSE_MS = 400;
 
 export function detectLitecoinProvider(baseUrl) {
   const url = (baseUrl || '').toLowerCase();
+  if (url.includes('alchemy.com')) return 'alchemy';
   if (url.includes('litecoinspace.org')) return 'litecoinspace';
   if (url.includes('blockcypher.com')) return 'blockcypher';
   if (url.includes('atomicwallet.io')) return 'atomicwallet';
-  if (url.includes('chain.so')) return 'chainso';
   return 'unknown';
 }
 
@@ -63,36 +63,31 @@ function entryFromBlockcypher(addr, data) {
   };
 }
 
-function entryFromAtomicwallet(addr, data) {
+function entryFromAtomicwallet(addr, data, provider = 'atomicwallet') {
   if (!data || data.error) return null;
   const balance = BigInt(data.balance ?? 0) + BigInt(data.unconfirmedBalance ?? 0);
   return {
     balance,
     address: addr,
-    nTx: data.txApperances ?? data.txAppearances ?? (balance > 0n ? 1 : 0),
+    nTx: data.txs ?? data.txApperances ?? data.txAppearances ?? (balance > 0n ? 1 : 0),
     totalReceived: Number(data.totalReceived ?? 0),
     totalSent: Number(data.totalSent ?? 0),
-    provider: 'atomicwallet',
+    provider,
   };
 }
 
-function entryFromChainSo(addr, data) {
-  if (!data || data.status === 'fail') return null;
-  const payload = data.data ?? data;
-  const balance = BigInt(
-    payload.confirmed_balance ?? payload.balance ?? payload.confirmed ?? 0
-  ) + BigInt(payload.unconfirmed_balance ?? payload.unconfirmed ?? 0);
-  return {
-    balance,
-    address: addr,
-    nTx: payload.txs_total ?? payload.txs_received ?? 0,
-    totalReceived: payload.confirmed_received ?? 0,
-    totalSent: 0,
-    provider: 'chainso',
-  };
+function blockbookAddressUrl(baseUrl, addr) {
+  const root = baseUrl.replace(/\/$/, '');
+  if (root.includes('alchemy.com')) {
+    return `${root}/api/v2/address/${addr}?details=basic`;
+  }
+  if (root.includes('atomicwallet.io')) {
+    return `${root}/${addr}`;
+  }
+  return `${root}/${addr}`;
 }
 
-function buildProviderChain(baseUrl, chainSoApiKey) {
+function buildProviderChain(baseUrl) {
   const primary = detectLitecoinProvider(baseUrl);
   const chain = [];
 
@@ -103,9 +98,6 @@ function buildProviderChain(baseUrl, chainSoApiKey) {
     { name: 'blockcypher', baseUrl: LTC_BLOCKCYPHER_URL },
   ]) {
     if (!chain.some((p) => p.name === fallback.name)) chain.push(fallback);
-  }
-  if (chainSoApiKey && !chain.some((p) => p.name === 'chainso')) {
-    chain.push({ name: 'chainso', baseUrl: 'https://chain.so/api/v3', apiKey: chainSoApiKey });
   }
   return chain;
 }
@@ -180,14 +172,18 @@ async function fetchLitecoinspace(provider, addresses, timeoutMs) {
   });
 }
 
-async function fetchAtomicwallet(_provider, addresses, timeoutMs) {
-  return fetchParallelSingle('atomicwallet', addresses, timeoutMs, async (addr) => {
-    const resp = await httpGet(`${LTC_ATOMICWALLET_URL}/${addr}`, timeoutMs);
+async function fetchAtomicwallet(provider, addresses, timeoutMs) {
+  return fetchParallelSingle(provider.name, addresses, timeoutMs, async (addr) => {
+    const resp = await httpGet(blockbookAddressUrl(provider.baseUrl || LTC_ATOMICWALLET_URL, addr), timeoutMs);
     return {
       status: resp.status,
-      entry: entryFromAtomicwallet(addr, resp.data),
+      entry: entryFromAtomicwallet(addr, resp.data, provider.name),
     };
   });
+}
+
+async function fetchAlchemy(provider, addresses, timeoutMs) {
+  return fetchAtomicwallet(provider, addresses, timeoutMs);
 }
 
 async function fetchBlockcypher(provider, addresses, timeoutMs) {
@@ -229,31 +225,16 @@ async function fetchBlockcypher(provider, addresses, timeoutMs) {
   return { results, rateLimited: false };
 }
 
-async function fetchChainSo(provider, addresses, timeoutMs) {
-  const headers = provider.apiKey ? { 'API-KEY': provider.apiKey } : {};
-  return fetchParallelSingle('chainso', addresses, timeoutMs, async (addr) => {
-    const resp = await httpGet(
-      `${provider.baseUrl.replace(/\/$/, '')}/balance/LTC/${addr}`,
-      timeoutMs,
-      headers,
-    );
-    return {
-      status: resp.status,
-      entry: entryFromChainSo(addr, resp.data),
-    };
-  }, 3);
-}
-
 async function fetchWithProvider(provider, addresses, timeoutMs) {
   switch (provider.name) {
     case 'litecoinspace':
       return fetchLitecoinspace(provider, addresses, timeoutMs);
     case 'atomicwallet':
       return fetchAtomicwallet(provider, addresses, timeoutMs);
+    case 'alchemy':
+      return fetchAlchemy(provider, addresses, timeoutMs);
     case 'blockcypher':
       return fetchBlockcypher(provider, addresses, timeoutMs);
-    case 'chainso':
-      return fetchChainSo(provider, addresses, timeoutMs);
     default:
       return { results: {}, rateLimited: false };
   }
@@ -265,14 +246,13 @@ export async function queryLitecoinBalances({
   baseUrl,
   addresses,
   timeoutMs = 3000,
-  chainSoApiKey = null,
   onLog = () => {},
   schedule = (fn) => fn(),
   maxRetries = 3,
 }) {
   if (!addresses.length) return {};
 
-  const providers = buildProviderChain(baseUrl, chainSoApiKey);
+  const providers = buildProviderChain(baseUrl);
   const final = {};
   let pending = [...addresses];
 
@@ -315,14 +295,12 @@ export async function fetchLitecoinAddressBalance(
   baseUrl,
   addr,
   timeoutMs = 3000,
-  chainSoApiKey = null,
   schedule = (fn) => fn(),
 ) {
   const results = await queryLitecoinBalances({
     baseUrl,
     addresses: [addr],
     timeoutMs,
-    chainSoApiKey,
     schedule,
   });
   const info = results[addr];

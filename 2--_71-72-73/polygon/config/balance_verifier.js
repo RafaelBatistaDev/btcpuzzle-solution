@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { CryptoEngine } from './utils.js';
 import { RUNTIME_CONFIG } from './config.js';
+import { dispatchEvmBalances } from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -78,74 +79,48 @@ export class PolygonBalanceVerifier {
     const foundCount = { total: 0, addresses: [] };
 
     this.log(`🔍 Polygon Verifier: Checando ${addresses.length} endereços...`);
-    this.log(`📡 RPC: ${this.rpcUrl} (Ankr Token API)`);
+    this.log(`📡 RPC batch eth_getBalance (${RUNTIME_CONFIG.RPC_ENDPOINTS?.length || 1} endpoint(s))`);
 
     try {
-      // Usa Ankr Token API - ankr_getAccountBalance para Polygon
-      for (let i = 0; i < addresses.length; i++) {
-        const addr = addresses[i];
-        const payload = {
-          jsonrpc: '2.0',
-          method: 'ankr_getAccountBalance',
-          params: {
-            blockchain: ['polygon'],
-            walletAddress: addr.toLowerCase(),
-            onlyWhitelisted: true,     // Default conforme doc
-            nativeFirst: true          // Priorizar MATIC
-          },
-          id: 1
-        };
-        
-        const resp = await axios.post(this.rpcUrl, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'Puzzle-Solver-Client/1.0',
-            'Connection': 'keep-alive'
-          },
-          timeout: RUNTIME_CONFIG.TIMEOUT_MS,
-        });
-
-        this.logApiResponse([addr], 'ankr_getAccountBalance', resp.status, resp.data);
-
-        if (resp.data.result && resp.data.result.assets) {
-          const assets = resp.data.result.assets;
-          const maticBalance = assets.find(a => a.tokenSymbol === 'MATIC');
-          
-          if (maticBalance) {
-            const balanceWei = BigInt(maticBalance.balanceRawInteger || '0');
-            const balanceMatic = Number(balanceWei) / 1e18;
-            const checksumAddr = CryptoEngine.toChecksumAddress(addr);
-
-            const result = {
-              address: checksumAddr,
-              balanceWei: maticBalance.balanceRawInteger || '0',
-              balanceMatic: balanceMatic.toFixed(8),
-              timestamp: new Date().toISOString(),
-            };
-
-            results.push(result);
-
-            if (balanceWei > 0n) {
-              foundCount.total++;
-              foundCount.addresses.push(checksumAddr);
-
-              const alert = '\x07'.repeat(5);
-              const puzzleStr = puzzle ? ` [PUZZLE #${puzzle}]` : '';
-              this.log(`${alert}\n${'='.repeat(80)}\n🚨 POLYGON SALDO ENCONTRADO!${puzzleStr} 🚨\nEndereço: ${checksumAddr}\nSaldo: ${balanceMatic.toFixed(8)} MATIC\n${'='.repeat(80)}\n`);
-
-              this._saveToFoundFile('polygon', puzzle, checksumAddr, maticBalance.balanceRawInteger, `${balanceMatic.toFixed(8)} MATIC`);
-            }
-          }
+      const { results: balanceMap } = await dispatchEvmBalances(
+        axios,
+        addresses,
+        RUNTIME_CONFIG.RPC_ENDPOINTS || [RUNTIME_CONFIG.RPC_ENDPOINT],
+        {
+          timeoutMs: RUNTIME_CONFIG.TIMEOUT_MS,
+          retryMs: RUNTIME_CONFIG.RPC_RETRY_MS || 15000,
+          toChecksum: (addr) => CryptoEngine.toChecksumAddress(addr),
         }
+      );
 
-        if (i < addresses.length - 1) {
-          await new Promise(r => setTimeout(r, this.delay));
+      for (const addr of addresses) {
+        const checksumAddr = CryptoEngine.toChecksumAddress(addr);
+        const info = balanceMap[checksumAddr];
+        if (!info) continue;
+
+        const balanceWei = info.balance;
+        const balanceMatic = Number(balanceWei) / 1e18;
+
+        const result = {
+          address: checksumAddr,
+          balanceWei: balanceWei.toString(),
+          balanceMatic: balanceMatic.toFixed(8),
+          timestamp: new Date().toISOString(),
+        };
+        results.push(result);
+
+        if (balanceWei > 0n) {
+          foundCount.total++;
+          foundCount.addresses.push(checksumAddr);
+          const alert = '\x07'.repeat(5);
+          const puzzleStr = puzzle ? ` [PUZZLE #${puzzle}]` : '';
+          this.log(`${alert}\n${'='.repeat(80)}\n🚨 POLYGON SALDO ENCONTRADO!${puzzleStr} 🚨\nEndereço: ${checksumAddr}\nSaldo: ${balanceMatic.toFixed(8)} MATIC\n${'='.repeat(80)}\n`);
+          this._saveToFoundFile('polygon', puzzle, checksumAddr, balanceWei.toString(), `${balanceMatic.toFixed(8)} MATIC`);
         }
       }
     } catch (err) {
-      this.logApiResponse(addresses, 'ankr_getAccountBalance', err.response?.status || 0, { error: err.message });
-      this.log(`⚠️  Erro Ankr Token API Polygon: ${err.message}`);
+      this.logApiResponse(addresses, 'eth_getBalance', err.response?.status || 0, { error: err.message });
+      this.log(`⚠️  Erro RPC Polygon: ${err.message}`);
     }
 
     if (foundCount.total > 0) {

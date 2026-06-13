@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { RUNTIME_CONFIG }           from './config.js';
 import { globalLimiter }            from './solver.js';
+import { dispatchBlockchainInfoBalances } from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -93,49 +94,55 @@ export class BitcoinBalanceVerifier {
 
     this.log(`🔍 Verificando ${addresses.length} endereços via ${provider} (${baseUrl})`);
 
-    for (let i = 0; i < addresses.length; i++) {
-      const addr = addresses[i].trim();
-      if (!addr) continue;
-
-      this.log(`📡 Consultando ${i + 1}/${addresses.length}: ${addr.substring(0, 10)}...`);
+    for (let i = 0; i < addresses.length; i += 100) {
+      const chunk = addresses.slice(i, i + 100).map((a) => a.trim()).filter(Boolean);
+      if (chunk.length === 0) continue;
 
       try {
-        const balance = await globalLimiter.schedule(() => fetchAddressBalance(baseUrl, addr));
+        const { results: bulkResults, rateLimited } = await dispatchBlockchainInfoBalances(
+          axios,
+          chunk,
+          baseUrl,
+          {
+            timeoutMs: RUNTIME_CONFIG.TIMEOUT_MS,
+            scheduleFn: (fn) => globalLimiter.schedule(fn),
+          }
+        );
 
-        if (balance === null) {
+        if (rateLimited) {
           this.log(`⚠️ Rate limit ou erro HTTP. Aumentando delay e aguardando 15s...`);
           globalLimiter.setDelay(3000);
           await new Promise(r => setTimeout(r, 15000));
-          i--;
+          i -= 100;
           continue;
         }
 
-        const balanceBtc = Number(balance) / 1e8;
-        results.push({
-          address:   addr,
-          balance:   Number(balance),
-          timestamp: new Date().toISOString(),
-        });
+        for (const addr of chunk) {
+          const entry = bulkResults[addr];
+          if (!entry) continue;
 
-        if (balance > 0n) {
-          const puzzleStr = puzzle ? ` [PUZZLE #${puzzle}]` : '';
-          this.log(
-            `\x07\x07\x07\n${'='.repeat(80)}\n` +
-            `🚨 BITCOIN SALDO ENCONTRADO!${puzzleStr} 🚨\n` +
-            `Endereço: ${addr}\n` +
-            `Saldo: ${balance.toString()} sat (${balanceBtc.toFixed(8)} BTC)\n` +
-            `${'='.repeat(80)}\n`
-          );
-          this._saveToFoundFile('bitcoin', puzzle, addr, Number(balance), `${balanceBtc.toFixed(8)} BTC (${balance.toString()} sat)`);
+          const balance = entry.balance;
+          const balanceBtc = Number(balance) / 1e8;
+          results.push({
+            address:   addr,
+            balance:   Number(balance),
+            timestamp: new Date().toISOString(),
+          });
+
+          if (balance > 0n) {
+            const puzzleStr = puzzle ? ` [PUZZLE #${puzzle}]` : '';
+            this.log(
+              `\x07\x07\x07\n${'='.repeat(80)}\n` +
+              `🚨 BITCOIN SALDO ENCONTRADO!${puzzleStr} 🚨\n` +
+              `Endereço: ${addr}\n` +
+              `Saldo: ${balance.toString()} sat (${balanceBtc.toFixed(8)} BTC)\n` +
+              `${'='.repeat(80)}\n`
+            );
+            this._saveToFoundFile('bitcoin', puzzle, addr, Number(balance), `${balanceBtc.toFixed(8)} BTC (${balance.toString()} sat)`);
+          }
         }
-
       } catch (err) {
-        this.log(`❌ Erro ao consultar ${addr}: ${err.message}`);
-        results.push({
-          address:   addr,
-          balance:   0,
-          timestamp: new Date().toISOString(),
-        });
+        this.log(`❌ Erro ao consultar lote: ${err.message}`);
       }
     }
 

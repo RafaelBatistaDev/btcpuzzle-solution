@@ -13,7 +13,7 @@ import {
   getEvmResult,
   logBatchItemErrors,
   rpcHost,
-  isTransientRpcMessage,
+  dispatchEvmBalances,
 } from '../../solver_batch_guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -197,69 +197,51 @@ export class PolygonSolver {
 
     if (addresses.length === 0) return {};
 
-    const url = this._activeRpcUrl();
     const result = {};
 
     try {
-      this.log(`📡 Consultando lote de ${addresses.length} endereços via ${this.provider}...`);
+      this.log(`📡 Consultando lote de ${addresses.length} endereços via ${this.provider} (batch)...`);
       this.state.dailyRequests.count++;
       this._saveState();
 
-      const payloads = addresses.map((addr, index) => ({
-        jsonrpc: '2.0',
-        method: 'eth_getBalance',
-        params: [addr.toLowerCase(), 'latest'],
-        id: index + 1
-      }));
+      const { results, endpointIndex, transient } = await dispatchEvmBalances(
+        axios,
+        addresses,
+        this.rpcEndpoints,
+        {
+          timeoutMs: RUNTIME_CONFIG.TIMEOUT_MS,
+          retryMs: RUNTIME_CONFIG.RPC_RETRY_MS,
+          toChecksum: (addr) => CryptoEngine.toChecksumAddress(addr),
+          startIndex: this.rpcIndex,
+          onRotate: (idx, host) => {
+            this.rpcIndex = idx;
+            this.provider = host;
+            this.log(`🔄 Alternando RPC → ${host}`);
+          },
+        }
+      );
 
-      const resp = await axios.post(url, payloads, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'Puzzle-Solver-Client/1.0',
-          'Connection': 'keep-alive'
-        },
-        timeout: RUNTIME_CONFIG.TIMEOUT_MS,
-        validateStatus: () => true
-      });
+      this.rpcIndex = endpointIndex;
+      this.provider = rpcHost(this._activeRpcUrl());
+      Object.assign(result, results);
 
-      if (resp.status === 429 || isTransientRpcMessage(JSON.stringify(resp.data || ''))) {
-        this.log(`⚠️ [${this.provider}] Rate limit / bloqueio temporário (HTTP ${resp.status}). Alternando RPC...`);
+      if (transient) {
+        this.log(`⚠️ [${this.provider}] Rate limit / bloqueio temporário. Alternando RPC...`);
         this._rotateRpc();
         await sleep(RUNTIME_CONFIG.RPC_RETRY_MS);
         return await this.queryRPC(addresses);
       }
 
-      if (resp.status === 200 && Array.isArray(resp.data)) {
-        let itemErrors = 0;
-        let firstError = '';
+      const missing = addresses.filter((a) => !getEvmResult(results, { addr: a }, (x) => CryptoEngine.toChecksumAddress(x)));
+      logBatchItemErrors(
+        (msg) => this.log(msg),
+        this.provider,
+        missing.length,
+        addresses.length,
+        missing.length ? 'eth_getBalance batch incompleto' : ''
+      );
 
-        resp.data.forEach((responseItem, idx) => {
-          const addr = addresses[idx];
-          if (responseItem?.result) {
-            const saldoWei = BigInt(responseItem.result);
-            const checksumAddr = CryptoEngine.toChecksumAddress(addr);
-            result[checksumAddr] = {
-              balance: saldoWei,
-              address: checksumAddr
-            };
-          } else if (responseItem?.error) {
-            itemErrors++;
-            if (!firstError) firstError = responseItem.error.message || 'erro RPC';
-          }
-        });
-
-        logBatchItemErrors((msg) => this.log(msg), this.provider, itemErrors, addresses.length, firstError);
-        if (itemErrors === addresses.length) {
-          this._rotateRpc();
-        }
-      } else if (resp.status === 200 && resp.data?.result) {
-        const addr = addresses[0];
-        const saldoWei = BigInt(resp.data.result);
-        const checksumAddr = CryptoEngine.toChecksumAddress(addr);
-        result[checksumAddr] = { balance: saldoWei, address: checksumAddr };
-      } else {
-        this.log(`⚠️ [${this.provider}] Resposta inesperada (HTTP ${resp.status})`);
+      if (missing.length === addresses.length) {
         this._rotateRpc();
         await sleep(RUNTIME_CONFIG.RPC_RETRY_MS);
         return await this.queryRPC(addresses);

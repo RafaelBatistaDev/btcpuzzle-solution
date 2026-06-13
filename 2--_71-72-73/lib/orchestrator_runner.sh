@@ -45,6 +45,8 @@ orchestrator_main() {
   load_env_and_search_mode "$root"
   apply_delays_for_group "$group"
 
+  preflight_targets "$root" "$group" || true
+
   echo ""
   echo "╔════════════════════════════════════════════════════════════╗"
   printf "║  🎛️  ORQUESTRADOR CENTRAL: %-32s ║\n" "$title"
